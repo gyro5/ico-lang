@@ -1,0 +1,844 @@
+#include <stdio.h>
+#include <stdarg.h>
+#include <string.h>
+#include <time.h>
+
+#include "clox_common.h"
+#include "clox_vm.h"
+#include "clox_debug.h"
+#include "clox_compiler.h"
+#include "clox_value.h"
+#include "clox_memory.h"
+#include "clox_object.h"
+
+//------------------------------
+//      STATIC FUNCTIONS
+//------------------------------
+
+// Reset the VM's value stack
+static void reset_stack() {
+    // Reset the stack pointer back to index 0 of the stack
+    vm.stack_top = vm.stack;
+    vm.frame_count = 0;
+
+    // Reset the list of open upvalues each time a top-level
+    // "function" is executed (ex. each REPL line)
+    vm.open_upvalues = NULL;
+}
+
+// Peek the Value at distance away from the stack top
+static Value peek(int distance) {
+    // stack_top points to the next slot to be used,
+    // so -1 is the Value at the top of the stack.
+    //
+    // This means distance=0 is the stack top,
+    // distance=1 is the next item, and so on.
+    return *(vm.stack_top - 1 - distance);
+}
+
+// Return the falsiness of a clox Value
+// (False only when nil or boolean false)
+static bool is_falsey(Value val) {
+    return is_nil(val) || (is_bool(val) && !as_bool(val));
+}
+
+// Perform concatenation on the 2 strings on the stack top,
+// assuming they are already checked to be strings
+static void concat_strings() {
+    // s2 before s1 due to stack LIFO. Peek instead of pop to prevent the strings
+    // from being GC-ed so that they are available when we do memcpy().
+    ObjString* s2 = as_string(peek(0));
+    ObjString* s1 = as_string(peek(1));
+
+    // Populate the new ObjString
+    int concat_length = s1->length + s2->length;
+    char* concat_chars = allocate(char, concat_length + 1);
+    memcpy(concat_chars, s1->chars, s1->length);
+    memcpy(concat_chars + s1->length, s2->chars, s2->length);
+    concat_chars[concat_length] = '\0';
+
+    ObjString* result_obj = take_own_and_create_str_obj(concat_chars, concat_length);
+    pop();
+    pop();
+    push(obj_val(result_obj));
+}
+
+// Report a runtime error with a format string as the error message
+static void runtime_error(const char* format_str, ...) {
+    // Boilerplate to use "variadic function" (aka take varying number of arguments).
+    // vfprintf() is like printf() but takes an explicit variadic list (va_list) instead.
+    va_list args;
+    va_start(args, format_str);
+    vfprintf(stderr, format_str, args); // Print the error message
+    va_end(args);
+    fputs("\n", stderr);
+
+    // Print the stack trace.
+    for (int i = vm.frame_count - 1; i >= 0; i--) {
+        CallFrame* frame = &vm.frames[i];
+        ObjFunction* func = frame->closure->function;
+
+        // Calculate the index of the current instruction from
+        // the instruction pointer and the start of the code chunk.
+        // "- 1" is because ip points to the next instruction.
+        size_t bytecode_idx = frame->ip - func->chunk.code_chunk - 1;
+        fprintf(stderr, "[line %d] in ", func->chunk.line_nums[bytecode_idx]);
+
+        // Print the function name
+        if (func->name != NULL) {
+            fprintf(stderr, "%s()\n", func->name->chars);
+        }
+        else {
+            fprintf(stderr, "script\n");
+        }
+    }
+
+    reset_stack(); // For the next REPL run
+}
+
+// Define a new native function and add it and its name
+// as value and key to the hash table of global variables.
+static void define_native_func(const char* name, NativeFn func) {
+    // Need to push then pop immediately due to garbage collection
+    push(obj_val(copy_and_create_str_obj(name, (int)strlen(name))));
+    push(obj_val(new_native_func_obj(func)));
+    table_set(&vm.globals, as_string(vm.stack[0]), vm.stack[1]);
+    pop();
+    pop();
+}
+
+// Helper function to actually set up a function call.
+static bool call_helper(ObjClosure* closure, int arg_count) {
+    // Check arity
+    if (arg_count != closure->function->arity) {
+        runtime_error("Expect %d arguments but got %d.",
+            closure->function->arity, arg_count);
+        return false;
+    }
+
+    // Check for call stack overflow
+    if (vm.frame_count == FRAMES_MAX) {
+        runtime_error("Call stack overflow.");
+        return false;
+    }
+
+    // Set up a new call frame
+    CallFrame* new_frame = &vm.frames[vm.frame_count++];
+    new_frame->closure = closure;
+    new_frame->ip = closure->function->chunk.code_chunk;
+    new_frame->base_ptr = vm.stack_top - arg_count - 1; // starts at the callee obj on the stack
+
+    return true;
+}
+
+// Start a call on a Value by setting up a new CallFrame.
+// Return false if the value is not callable.
+static bool call_value(Value callee, int arg_count) {
+    if (is_obj(callee)) {
+        switch (obj_type(callee)) {
+            case OBJ_CLOSURE:
+                return call_helper(as_closure(callee), arg_count);
+
+            case OBJ_NATIVE: {
+                NativeFn c_func = as_native_c_func(callee);
+
+                // Call the C function
+                Value ret_val = c_func(arg_count, vm.stack_top - arg_count);
+
+                // Discard the "call frame" (which only has arguments)
+                // and push the return value back
+                vm.stack_top -= arg_count + 1; // "+1" for the ObjNative
+                push(ret_val);
+
+                return true;
+            }
+
+            case OBJ_CLASS: {
+                ObjClass* class = as_class(callee);
+
+                // Put the new instance right before the argument
+                // list of the initializer
+                vm.stack_top[-arg_count - 1] = obj_val(new_instance_obj(class));
+
+                // Try to call the initializer if available
+                Value initializer;
+                if (table_get(&class->methods, vm.init_str, &initializer)) {
+                    return call_helper(as_closure(initializer), arg_count);
+                }
+                else if (arg_count != 0) {
+                    // No initializer but still passed arguments
+                    runtime_error("Expected 0 argument but got %d.", arg_count);
+                    return false;
+                }
+
+                return true;
+            }
+
+            case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bound = as_bound_method(callee);
+
+                // Add the receiver to stack slot 0 of the new call frame
+                // (overwriting the ObjBoundMethod we just evaluated).
+                vm.stack_top[-arg_count - 1] = bound->receiver;
+
+                return call_helper(bound->method, arg_count);
+            }
+
+            default: // Non-callable Obj types
+                break;
+        }
+    }
+
+    // Not even an Obj
+    runtime_error("Can only call functions and classes.");
+    return false;
+}
+
+// Capture a local variable (of the enclosing function) into an
+// ObjUpvalue. Will reuse the ObjUpvalue if this local var has
+// been captured before.
+static ObjUpValue* capture_upvalue(Value* upper_local) {
+    // Try to find an existing upvalue that capture this local var
+    ObjUpValue* prev = NULL;
+    ObjUpValue* curr = vm.open_upvalues;
+    while (curr != NULL && curr->location > upper_local) {
+        prev = curr;
+        curr = curr->next;
+    }
+
+    // Found an existing upvalue
+    if (curr != NULL && curr->location == upper_local) {
+        return curr;
+    }
+
+    // Otherwise, create a new upvalue and insert it to
+    // the linked list of open upvalues at the right location
+    ObjUpValue* new_upvalue = new_upvalue_obj(upper_local);
+    new_upvalue->next = curr; // curr will be the upvalue right after the new one
+    if (prev == NULL) {
+        // Insert to head of the linked list
+        vm.open_upvalues = new_upvalue;
+    }
+    else {
+        // Insert right after prev (prev->new->curr)
+        prev->next = new_upvalue;
+    }
+    return new_upvalue;
+}
+
+// Close (Hoist to heap) all upvalues in the list of open upvalues
+// from the stack top to the passed stack slot "last".
+static void close_all_upvalues_from(Value* last) {
+    while (vm.open_upvalues != NULL && vm.open_upvalues->location >= last) {
+        ObjUpValue* curr = vm.open_upvalues;
+
+        curr->closed = *curr->location; // Copy the local var to the heap
+        curr->location = &curr->closed; // Redirect to the hoisted value
+
+        vm.open_upvalues = curr->next;
+    }
+}
+
+// Define a method with the given name and the ObjClosure at stack top,
+// then add it to the ObjClass at the near-top of the stack.
+static void define_method(ObjString* method_name) {
+    // Btw, no need to type-check the class and the closure,
+    // because the VM can trust the compiler to make correct bytecode.
+    Value method_closure = peek(0);
+    ObjClass* class = as_class(peek(1));
+    table_set(&class->methods, method_name, method_closure);
+    pop(); // Pop the ObjClosure val
+}
+
+// Find and bind the method with the given name from the given class
+// with the object at stack top, then create a new ObjBoundMethod
+// and push it on the stack. Report runtime error if not found.
+static bool bind_method(ObjClass* class, ObjString* name) {
+    // Try to look up the method
+    Value method;
+    if (!table_get(&class->methods, name, &method)) {
+        runtime_error("Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    // Found
+    ObjBoundMethod* bound = new_bound_method(peek(0), as_closure(method));
+    pop(); // Pop the instance
+    push(obj_val(bound)); // Push in the new ObjBoundMethod
+    return true;
+}
+
+// Perform a method invocation with the method with the given name
+// in the given class. The class is passed separately to support
+// inheritance. The receiver and the argument list are already
+// on the VM stack.
+static bool invoke_from_class(ObjClass* class, ObjString* method_name, int arg_count) {
+    Value method;
+    if (!table_get(&class->methods, method_name, &method)) {
+        runtime_error("Undefined property '%s'.", method_name->chars);
+        return false;
+    }
+
+    // Can call as closure because "this" is already in the right stack slot
+    return call_helper(as_closure(method), arg_count);
+}
+
+// Perform a fast invocation of a method, assuming the receiver and
+// the argument list are already on the VM stack.
+static bool invoke_helper(ObjString* name, int arg_count) {
+    // Get the receiver on the stack and do a check
+    Value receiver = peek(arg_count);
+    if (!is_instance(receiver)) {
+        runtime_error("Only instances have methods.");
+        return false;
+    }
+
+    ObjInstance* instance = as_instance(receiver);
+
+    // Have to check for shadowing fields first
+    Value val;
+    if (table_get(&instance->fields, name, &val)) {
+        vm.stack_top[-arg_count - 1] = val;
+        return call_value(val, arg_count);
+    }
+
+    // Not a field -> Invoke normally as a method
+    return invoke_from_class(instance->class_, name, arg_count);
+}
+
+/*************************************
+    THE MAIN VM EXECUTION FUNCTION
+**************************************/
+
+// Run the current bytecode chunk in the VM
+static InterpretResult vm_run() {
+    CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
+
+#ifdef  DEBUG_TRACE_EXECUTION
+    printf("\n============ Execution Trace =============\n");
+#endif
+
+// Return the next byte in the code chunk, then increment ip
+#define read_next_byte() (*curr_frame->ip++)
+
+// Get the constant indexed by the next byte
+#define read_constant() \
+    (curr_frame->closure->function->chunk.const_pool.values[read_next_byte()])
+
+// Get the next 2 bytes as an unsigned short
+#define read_short() \
+    (curr_frame->ip += 2, \
+    (uint16_t)((curr_frame->ip[-2] << 8) | curr_frame->ip[-1]))
+
+// Same as read_constant() but also convert to ObjString*
+#define read_string() as_string(read_constant())
+
+// Common macro for the binary arithmetic instruction. "op" is
+// the binary operation, and "retValType" is the macro of the
+// output Value of the operation.
+//
+// b is popped first because of LIFO.
+//
+// The do-while loop is used to make sure the multiple expanded
+// statements are in the same scope, as to allow ";" to be after
+// the macro call. The loop will only run once.
+#define binary_op(retValType, op) \
+    do { \
+        /* Check that the 2 operands are numbers */ \
+        if (!is_number(peek(0)) || !is_number(peek(1))) { \
+            runtime_error("Operands must be numbers."); \
+            return INTERPRET_RUNTIME_ERROR; \
+        } \
+        \
+        /* Perform the binary operation */ \
+        double b = as_number(pop()); \
+        double a = as_number(pop()); \
+        push(retValType(a op b)); \
+    } while(false)
+
+    // Read and execute the bytecode byte-by-byte
+    for (;;) {
+#ifdef DEBUG_TRACE_EXECUTION
+        // Print the content of the VM's stack
+        printf("          stack: ");
+        for (Value* slot = vm.stack; slot < vm.stack_top; slot++) {
+            printf("[ ");
+            print_value(*slot);
+            printf(" ]");
+        }
+        printf("\n");
+
+        // If in debug mode, print the next instruction to be executed.
+        // disass_instruction() needs an int offset, hence the pointer math
+        disass_instruction(&curr_frame->closure->function->chunk,
+            (int)(curr_frame->ip - curr_frame->closure->function->chunk.code_chunk));
+
+        printf("\n");
+#endif
+
+        /***********************
+            OPCODE SWITCHING
+        ************************/
+        uint8_t instruction;
+        switch (instruction = read_next_byte()) {
+            case OP_CONSTANT: {
+                // Quick note: The {} is required because before C23,
+                // declaring a variable right after a label (which is
+                // "case OP_CONSTANT:" in this case) is not allowed.
+                Value constant = read_constant();
+                push(constant);
+                break;
+            }
+
+            case OP_NIL: {
+                push(nil_val);
+                break;
+            }
+
+            case OP_TRUE: {
+                push(bool_val(true));
+                break;
+            }
+
+            case OP_FALSE: {
+                push(bool_val(false));
+                break;
+            }
+
+            case OP_NEGATE: {
+                // Check for number operand
+                if (!is_number(peek(0))) {
+                    runtime_error("Operand must be a number.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Negate the value
+                push(number_val(-as_number(pop())));
+                break;
+            }
+
+            // OP_ADD is different because it also handles string concatenation
+            case OP_ADD: {
+                if (is_string(peek(0)) && is_string(peek(1))) {
+                    concat_strings();
+                }
+                else if (is_number(peek(0)) && is_number(peek(1))) {
+                    double b = as_number(pop());
+                    double a = as_number(pop());
+                    push(number_val(a + b));
+                }
+                else {
+                    runtime_error("Operands must be 2 numbers or 2 strings.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+
+
+            case OP_SUBTRACT: binary_op(number_val, -); break;
+            case OP_MULTIPLY: binary_op(number_val, *); break;
+            case OP_DIVIDE:   binary_op(number_val, /); break;
+
+            case OP_NOT:
+                push(bool_val(is_falsey(pop())));
+                break;
+
+            case OP_EQUAL: {
+                // b before a
+                Value b = pop();
+                Value a = pop();
+
+                push(bool_val(values_equal(a, b)));
+                break;
+            }
+
+            case OP_GREATER: binary_op(bool_val, >); break;
+            case OP_LESS:    binary_op(bool_val, <); break;
+
+            case OP_RETURN: {
+                Value ret_val = pop();
+
+                // Pop the call frame from the call stack
+                vm.frame_count--;
+
+                // Close all open upvalues of the current function
+                close_all_upvalues_from(curr_frame->base_ptr);
+
+                // No more call frame --> Done!
+                if (vm.frame_count == 0) {
+                    pop(); // Pop the top-level ObjFunction
+                    return INTERPRET_OK;
+                }
+
+                // Otherwise, return to the caller
+                vm.stack_top = curr_frame->base_ptr;
+                push(ret_val);
+                curr_frame = &vm.frames[vm.frame_count - 1];
+                break;
+            }
+
+            case OP_PRINT: {
+                // The expression has been evaluated by the preceeding
+                // bytecodes and pushed on the VM's stack.
+                print_value(pop());
+                printf("\n");
+                break;
+            }
+
+            case OP_POP: pop(); break;
+
+            case OP_DEFINE_GLOBAL: {
+                // Insert the global variable and its initialized value
+                // into the globals hash table.
+                ObjString* var_name = read_string();
+                table_set(&vm.globals, var_name, peek(0));
+
+                // Need to pop AFTER the value is added to the globals table
+                // due to garbage collecting issue (which I dont understand yet)
+                pop();
+                break;
+            }
+
+            case OP_GET_GLOBAL: {
+                ObjString* var_name = read_string();
+                Value value;
+
+                // Try to access the variable with this name
+                if (!table_get(&vm.globals, var_name, &value)) {
+                    runtime_error("Undefined variable '%s'.", var_name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Found the variable -> Push the value to the VM stack
+                push(value);
+                break;
+            }
+
+            case OP_SET_GLOBAL: {
+                ObjString* var_name = read_string();
+
+                // Try to set the variable value
+                if (table_set(&vm.globals, var_name, peek((0)))) {
+                    // If variable not already declared
+                    table_delete(&vm.globals, var_name);
+                    runtime_error("Undefined variable '%s'.", var_name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                break;
+            }
+
+            case OP_GET_LOCAL: {
+                // Get the index of the local variable on the VM stack
+                uint8_t stack_index = read_next_byte();
+                push(curr_frame->base_ptr[stack_index]);
+                break;
+            }
+
+            case OP_SET_LOCAL: {
+                uint8_t stack_index = read_next_byte();
+                curr_frame->base_ptr[stack_index] = peek(0);
+                // Don't pop, only peek because assignment is an expr
+                break;
+            }
+
+            case OP_JUMP_IF_FALSE: {
+                uint16_t jump_dist = read_short();
+                if (is_falsey(peek(0))) {
+                    curr_frame->ip += jump_dist;
+                }
+                break;
+            }
+
+            case OP_JUMP: {
+                uint16_t jump_dist = read_short();
+                curr_frame->ip += jump_dist;
+                break;
+            }
+
+            case OP_LOOP: {
+                uint16_t jump_dist = read_short();
+                curr_frame->ip -= jump_dist; // jump back
+                break;
+            }
+
+            case OP_CALL: {
+                int arg_count = read_next_byte();
+
+                // stack_peek(arg_count) will be the callee value
+                if (!call_value(peek(arg_count), arg_count)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Successful call will add a new frame to the call stack
+                // so we need to update the current frame to it.
+                curr_frame = &vm.frames[vm.frame_count - 1];
+                // After this, the VM will use the latest call frame
+                // for the code chunk and the ip to be executed next.
+
+                break;
+            }
+
+            case OP_CLOSURE: {
+                // Create the closure object
+                ObjFunction* function = as_function(read_constant());
+                ObjClosure* closure = new_closure_obj(function);
+                push(obj_val(closure));
+
+                // Populate the array of upvalue pointers of the closure
+                for (int i = 0; i < closure->upvalue_count; i++) {
+                    uint8_t is_local = read_next_byte();
+                    uint8_t idx = read_next_byte();
+
+                    if (is_local) { // Local var of the enclosing function
+                        closure->upvalues[i] = capture_upvalue(curr_frame->base_ptr + idx);
+                    }
+                    else { // Upvalue of the enclosing function
+                        closure->upvalues[i] = curr_frame->closure->upvalues[idx];
+                        // Copy the pointer to the actual ObjUpvalue.
+                        //
+                        // We use the current call frame because it is for the current
+                        // function being executed, which is where the inner function
+                        // declaration happens (aka. where OP_CLOSURE is executed).
+                    }
+                }
+
+                break;
+            }
+
+            case OP_GET_UPVALUE: {
+                uint8_t upvalue_idx = read_next_byte();
+                push(*curr_frame->closure->upvalues[upvalue_idx]->location);
+                break;
+            }
+
+            case OP_SET_UPVALUE: {
+                uint8_t upvalue_idx = read_next_byte();
+                *curr_frame->closure->upvalues[upvalue_idx]->location = peek(0);
+                break;
+            }
+
+            case OP_CLOSE_UPVALUE: {
+                close_all_upvalues_from(vm.stack_top - 1); // Only 1 value at stack top
+                pop();
+                break;
+            }
+
+            case OP_CLASS: {
+                push(obj_val(new_class_obj(read_string())));
+                break;
+            }
+
+            case OP_GET_PROPERTY: {
+                // Check for instance
+                if (!is_instance(peek(0))) {
+                    runtime_error("Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Retrieve the instance
+                ObjInstance* instance = as_instance(peek(0));
+                ObjString* property_name = read_string();
+
+                Value val;
+
+                // Try to look up the property as a field first
+                if (table_get(&instance->fields, property_name, &val)) {
+                    pop(); // Pop the instance
+                    push(val);
+                    break;
+                }
+
+                // Try to look up the property as a method second
+                if (!bind_method(instance->class_, property_name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                break;
+            }
+
+            case OP_SET_PROPERTY: {
+                // Check for ObjInstance
+                if (!is_instance(peek(1))) {
+                    runtime_error("Only instances can set fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Retrieve the instance
+                ObjInstance* instance = as_instance(peek(1));
+
+                // Set the field (regardless of whether it has existed before)
+                table_set(&instance->fields, read_string(), peek(0));
+
+                // Pop the instance, and push back
+                // the new field value (bc set is an expr)
+                Value val = pop();
+                pop();
+                push(val);
+                break;
+            }
+
+            case OP_METHOD: {
+                define_method(read_string());
+                break;
+            }
+
+            case OP_INVOKE: {
+                ObjString* method_name = read_string();
+                int arg_count = read_next_byte();
+
+                // Try to invoke the method
+                if (!invoke_helper(method_name, arg_count)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Get the new call frame from the success invocation
+                curr_frame = &vm.frames[vm.frame_count - 1];
+                break;
+            }
+
+            case OP_INHERIT: {
+                Value superclass = peek(1);
+                if (!is_class(superclass)) {
+                    runtime_error("Superclass must be a class.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjClass* subclass = as_class(peek(0));
+
+                // Copy all methods from the superclass to the subclass
+                table_add_all(&as_class(superclass)->methods, &subclass->methods);
+
+                pop(); // Pop the subclass
+
+                // NOTE: The superclass is not popped so that it can stay at
+                // the correct stack slot for the local variable "super".
+                break;
+            }
+
+            case OP_GET_SUPER: {
+                ObjString* method_name = read_string();
+                ObjClass* superclass = as_class(pop());
+                // The superclass won't be GC-ed incorrectly because it is
+                // already stored in the scope of the class declaration.
+
+                // super.sth always resolve to a method, so we don't have to
+                // check for shadowing fields (because fields are not inherited).
+                if (!bind_method(superclass, method_name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                break;
+            }
+
+            case OP_SUPER_INVOKE: {
+                ObjString* method_name = read_string();
+                int arg_count = read_next_byte();
+                ObjClass* superclass = as_class(pop());
+
+                if (!invoke_from_class(superclass, method_name, arg_count)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Reset the frame cache as successful invocation will add a new frame
+                curr_frame = &vm.frames[vm.frame_count - 1];
+                break;
+            }
+        }
+    }
+
+// Because these macros are only used in this function.
+#undef next_byte
+#undef read_constant
+#undef read_string
+#undef read_short
+#undef binary_op
+}
+
+//------------------------------
+//   NATIVE FUNCTIONS FOR LOX
+//------------------------------
+
+static Value clock_native(int arg_count, Value* args) {
+    return number_val((double)clock() / CLOCKS_PER_SEC);
+}
+
+//------------------------------
+//      HEADER FUNCTIONS
+//------------------------------
+
+// The global VM variable/object
+VM vm;
+
+void init_vm() {
+    reset_stack();
+
+    // No allocated Objs yet
+    vm.allocated_objs = NULL;
+
+    // Initialize the gray stack (for GC)
+    vm.gray_count = 0;
+    vm.gray_capacity = 0;
+    vm.gray_stack = NULL;
+
+    // Initialize the GC trigger
+    vm.bytes_allocated = 0;
+    vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
+
+    // Initialize the hash tables
+    init_table(&vm.globals); // table of global variables
+    init_table(&vm.strings); // table for string interning
+
+    // Add native functions
+    define_native_func("clock", clock_native);
+
+    // Intern the string "init" for initializers
+    vm.init_str = NULL; // To prevent the GC from accessing uninitialized memory
+    vm.init_str = copy_and_create_str_obj("init", 4);
+}
+
+void free_vm() {
+    free_table(&vm.globals);
+    free_table(&vm.strings);
+    vm.init_str = NULL;
+    free_objects();
+}
+
+InterpretResult vm_interpret(const char *source_code) {
+    // Compile the source code and get the ObjFunction for
+    // top-level code
+    ObjFunction* top_level_func = compile(source_code);
+    if (top_level_func == NULL) return INTERPRET_COMPILE_ERROR;
+
+    // Set up the top-level "function" as the first call
+    push(obj_val(top_level_func));
+    ObjClosure* top_level_closure = new_closure_obj(top_level_func);
+    pop();
+    push(obj_val(top_level_closure));
+    call_helper(top_level_closure, 0);
+
+    // Run and return the result
+    return vm_run();
+}
+
+/*
+It seems that clox doesn't care to check for empty stack
+or stack overflow, possibly because we can say that trying
+to use more than the stack capacity is undefined, and the
+clox code will take care to not pop an empty stack?
+
+--> The reason is performance. Pop and push is used a lot,
+and checking for empty/overflowed stack is expensive. Instead,
+the compiler takes care to use precise numbers of pops and pushes,
+allowing stack operation to be fast.
+*/
+
+void push(Value val) {
+    *vm.stack_top = val;
+    vm.stack_top++;
+}
+
+Value pop() {
+    vm.stack_top--;
+    return *vm.stack_top;
+}
