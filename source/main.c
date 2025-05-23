@@ -2,45 +2,64 @@
 #include <stdlib.h>
 #include <string.h>
 
-// #include "simbolo_common.h"
+#include "ico_common.h"
 // #include "simbolo_chunk.h"
 // #include "simbolo_debug.h"
 #include "ico_vm.h"
+#include "ico_scanner.h"
 
 //------------------------------
 //      STATIC PROTOTYPES
 //------------------------------
 
-// TODO: add colors
 const char* repl_prompt[] = {
-    [INTERPRET_STARTING] = "(o_o) ",
-    [INTERPRET_OK] = "(^_^) ",
-    [INTERPRET_COMPILE_ERROR] = "(-_-) ",
-    [INTERPRET_RUNTIME_ERROR] = "(>_<) ",
+    [INTERPRET_IDLE] = COLOR_BOLD COLOR_BLUE "(o_o) " COLOR_RESET,
+    [INTERPRET_OK] = COLOR_BOLD COLOR_GREEN "(^_^) " COLOR_RESET,
+    [INTERPRET_COMPILE_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
+    [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(>_<) " COLOR_RESET,
 };
 
 // #define run_code(code) vm_interpret(code)
+
+#ifdef DEBUG_PRINT_TOKEN
+
 #define run_code(code) scan_code(code)
 
 static InterpretResult scan_code(const char* code) {
-    // TODO
+    init_scanner(code);
 
+    Token t = next_token();
 
-    return INTERPRET_COMPILE_ERROR;
+    while (t.type != TOKEN_EOF) {
+        print_token(t);
+        t = next_token();
+    }
+
+    return INTERPRET_OK;
 }
+
+#endif
 
 // Run the clox REPL
 static void run_repl() {
     // To hold the current line of REPL code.
     // Limit the line size to 1024 for simplicity's sake.
     char line[1024];
-    InterpretResult res = INTERPRET_STARTING;
+    InterpretResult res = INTERPRET_IDLE;
+
+    printf(COLOR_BOLD "Ico Interactive REPL.\n" COLOR_RESET
+           "- %s: Idle\n"
+           "- %s: Success\n"
+           "- %s: Errors\n",
+           repl_prompt[INTERPRET_IDLE],
+           repl_prompt[INTERPRET_OK],
+           repl_prompt[INTERPRET_COMPILE_ERROR]);
 
     for (;;) {
-        printf("%s", repl_prompt[res]);
+        printf("\n%s", repl_prompt[res]);
 
         if (!fgets(line, sizeof(line), stdin)) {
-            printf("Exiting Lox REPL...\n");
+            printf("Exiting Ico REPL...\n");
             break;
         }
 
@@ -117,7 +136,7 @@ int main(int argc, char *argv[]) {
         run_script(argv[1]);
     }
     else {
-        fprintf(stderr, "Usage: clox [path]\n");
+        fprintf(stderr, "Usage:\n- Run script: %s path\n- REPL: %s\n", argv[0], argv[0]);
         exit(64);
     }
 

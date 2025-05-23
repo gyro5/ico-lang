@@ -27,7 +27,7 @@ typedef enum {
     TOKEN_EQUAL_EQUAL, // "=="
 
     TOKEN_BANG, // "!"
-    TOKEN_NOT_EQUAL, // "!="
+    TOKEN_BANG_EQUAL, // "!="
 
     TOKEN_COLON, // ":"
     TOKEN_TRUE, // ":)"
@@ -80,5 +80,8 @@ void init_scanner(const char* source_code);
 
 // Scan the source code and return the next token
 Token next_token();
+
+// Print a token in a specific format
+void print_token(Token token);
 
 #endif // !SIMBOLO_SCANNER_H

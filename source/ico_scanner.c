@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "ico_common.h"
@@ -255,57 +256,50 @@ Token next_token() {
         case '#': return make_token(TOKEN_NULL);
 
         // Two-character tokens
-        case '!':
-            return make_token(match_next('=') ? TOKEN_NOT_EQUAL : TOKEN_BANG);
-        case '=':
-            return make_token(match_next('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);
+        case '!': return make_token(match_next('=') ? TOKEN_BANG_EQUAL : TOKEN_BANG);
+        case '=': return make_token(match_next('=') ? TOKEN_EQUAL_EQUAL : TOKEN_EQUAL);
+        case '/': return make_token(match_next('\\') ? TOKEN_UP_TRIANGLE : TOKEN_SLASH);
+        case '\\': return make_token(match_next('/') ? TOKEN_DOWN_TRIANGLE : TOKEN_BACK_SLASH);
+        case '-': return make_token(match_next('>') ? TOKEN_ARROW : TOKEN_MINUS);
+
         case ':':
             switch (peek_next_char()) {
-                case ')': advance_and_make_token(TOKEN_TRUE); break;
-                case '(': advance_and_make_token(TOKEN_FALSE); break;
-                default: make_token(TOKEN_COLON); break;
+                case ')': return advance_and_make_token(TOKEN_TRUE);
+                case '(': return advance_and_make_token(TOKEN_FALSE);
+                default:  return make_token(TOKEN_COLON);
             }
-            break;
+
         case '<':
             switch (peek_next_char()) {
-                case '=': advance_and_make_token(TOKEN_LESS_EQUAL); break;
-                case '~': advance_and_make_token(TOKEN_RETURN); break;
-                case '<': advance_and_make_token(TOKEN_READ); break;
-                case '?': advance_and_make_token(TOKEN_READ_BOOL); break;
-                case '#': advance_and_make_token(TOKEN_READ_NUM); break;
-                default: make_token(TOKEN_LESS); break;
+                case '=': return advance_and_make_token(TOKEN_LESS_EQUAL);
+                case '~': return advance_and_make_token(TOKEN_RETURN);
+                case '<': return advance_and_make_token(TOKEN_READ);
+                case '?': return advance_and_make_token(TOKEN_READ_BOOL);
+                case '#': return advance_and_make_token(TOKEN_READ_NUM);
+                default:  return make_token(TOKEN_LESS);
             }
-            break;
-        case '/':
-            return make_token(match_next('\\') ? TOKEN_UP_TRIANGLE : TOKEN_SLASH);
-        case '\\':
-            return make_token(match_next('/') ? TOKEN_DOWN_TRIANGLE : TOKEN_BACK_SLASH);
-        case '-':
-            return make_token(match_next('>') ? TOKEN_ARROW : TOKEN_MINUS);
 
         // Three-character tokens
         case '>':
             switch (peek_next_char()) {
-                case '=': advance_and_make_token(TOKEN_GREATER_EQUAL); break;
+                case '=': return advance_and_make_token(TOKEN_GREATER_EQUAL);
                 case '>':
                     advance_to_next_char();
-                    make_token(match_next('>') ? TOKEN_3_GREATER : TOKEN_2_GREATER);
-                    break;
-                default: make_token(TOKEN_GREATER); break;
+                    return make_token(match_next('>') ? TOKEN_3_GREATER : TOKEN_2_GREATER);
+                default: return make_token(TOKEN_GREATER);
             }
-            break;
+
         case '[': {
             char c1 = peek_next_char();
             char c2 = peek_next_next();
             if (c1 == '#' && c2 == ']') {
                 advance_to_next_char();
                 advance_to_next_char();
-                make_token(TOKEN_TABLE);
+                return make_token(TOKEN_TABLE);
             }
             else {
-                make_token(TOKEN_LEFT_SQUARE);
+                return make_token(TOKEN_LEFT_SQUARE);
             }
-            break;
         }
 
         // String literals
@@ -315,3 +309,67 @@ Token next_token() {
     // Invalid token found
     return error_token("Unexpected character.");
 }
+
+#ifdef DEBUG_PRINT_TOKEN
+
+const char* token_names[] = {
+    [TOKEN_VAR] = "TOKEN_VAR",
+    [TOKEN_LOOP] = "TOKEN_LOOP",
+    [TOKEN_QUESTION] = "TOKEN_QUESTION",
+    [TOKEN_SEMICOLON] = "TOKEN_SEMICOLON",
+    [TOKEN_LEFT_BRACE] = "TOKEN_LEFT_BRACE",
+    [TOKEN_RIGHT_BRACE] = "TOKEN_RIGHT_BRACE",
+    [TOKEN_LEFT_PAREN] = "TOKEN_LEFT_PAREN",
+    [TOKEN_RIGHT_PAREN] = "TOKEN_RIGHT_PAREN",
+    [TOKEN_RIGHT_SQUARE] = "TOKEN_RIGHT_SQUARE",
+    [TOKEN_DOT] = "TOKEN_DOT",
+    [TOKEN_COMMA] = "TOKEN_COMMA",
+    [TOKEN_OR] = "TOKEN_OR",
+    [TOKEN_AND] = "TOKEN_AND",
+    [TOKEN_XOR] = "TOKEN_XOR",
+    [TOKEN_PLUS] = "TOKEN_PLUS",
+    [TOKEN_STAR] = "TOKEN_STAR",
+    [TOKEN_PERCENT] = "TOKEN_PERCENT",
+    [TOKEN_NULL] = "TOKEN_NULL",
+    [TOKEN_EQUAL] = "TOKEN_EQUAL",
+    [TOKEN_EQUAL_EQUAL] = "TOKEN_EQUAL_EQUAL",
+    [TOKEN_BANG] = "TOKEN_BANG",
+    [TOKEN_BANG_EQUAL] = "TOKEN_NOT_EQUAL",
+    [TOKEN_COLON] = "TOKEN_COLON",
+    [TOKEN_TRUE] = "TOKEN_TRUE",
+    [TOKEN_FALSE] = "TOKEN_FALSE",
+    [TOKEN_LESS] = "TOKEN_LESS",
+    [TOKEN_LESS_EQUAL] = "TOKEN_LESS_EQUAL",
+    [TOKEN_RETURN] = "TOKEN_RETURN",
+    [TOKEN_READ] = "TOKEN_READ",
+    [TOKEN_READ_BOOL] = "TOKEN_READ_BOOL",
+    [TOKEN_READ_NUM] = "TOKEN_READ_NUM",
+    [TOKEN_SLASH] = "TOKEN_SLASH",
+    [TOKEN_UP_TRIANGLE] = "TOKEN_UP_TRIANGLE",
+    [TOKEN_BACK_SLASH] = "TOKEN_BACK_SLASH",
+    [TOKEN_DOWN_TRIANGLE] = "TOKEN_DOWN_TRIANGLE",
+    [TOKEN_MINUS] = "TOKEN_MINUS",
+    [TOKEN_ARROW] = "TOKEN_ARROW",
+    [TOKEN_GREATER] = "TOKEN_GREATER",
+    [TOKEN_GREATER_EQUAL] = "TOKEN_GREATER_EQUAL",
+    [TOKEN_2_GREATER] = "TOKEN_2_GREATER",
+    [TOKEN_3_GREATER] = "TOKEN_3_GREATER",
+    [TOKEN_LEFT_SQUARE] = "TOKEN_LEFT_SQUARE",
+    [TOKEN_TABLE] = "TOKEN_TABLE",
+    [TOKEN_IDENTIFIER] = "TOKEN_IDENTIFIER",
+    [TOKEN_INT] = "TOKEN_INT",
+    [TOKEN_FLOAT] = "TOKEN_FLOAT",
+    [TOKEN_STRING] = "TOKEN_STRING",
+    [TOKEN_ERROR] = "TOKEN_ERROR",
+    [TOKEN_EOF] = "TOKEN_EOF",
+};
+
+void print_token(Token token) {
+    fputc('"', stderr);
+    for (int i = 0; i < token.length; i++) {
+        fputc(*(token.start + i), stderr);
+    }
+    fprintf(stderr, "\" %s\n", token_names[token.type]);
+}
+
+#endif

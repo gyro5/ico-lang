@@ -39,7 +39,7 @@ typedef struct {
 // Will be used in the future by the compiler to report
 // static errors and by the VM to report runtime errors.
 typedef enum {
-    INTERPRET_STARTING,
+    INTERPRET_IDLE,
     INTERPRET_OK,
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR
