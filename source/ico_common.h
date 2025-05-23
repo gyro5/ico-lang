@@ -1,7 +1,7 @@
 // Common header file for clox
 
-#ifndef CLOX_COMMON_H
-#define CLOX_COMMON_H
+#ifndef ICO_COMMON_H
+#define ICO_COMMON_H
 
 #include <stdbool.h> // To use C99 "bool" type
 #include <stddef.h>  // For "size_t" and "NULL"
@@ -18,4 +18,4 @@
 
 #define UINT8_COUNT (UINT8_MAX + 1)
 
-#endif // !CLOX_COMMON_H
+#endif // !ICO_COMMON_H

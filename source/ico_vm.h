@@ -1,11 +1,12 @@
 #ifndef CLOX_VM_H
 #define CLOX_VM_H
 
-#include "clox_chunk.h"
-#include "clox_value.h"
-#include "clox_table.h"
-#include "clox_object.h"
+// #include "simbolo_chunk.h"
+// #include "simbolo_value.h"
+// #include "simbolo_table.h"
+// #include "simbolo_object.h"
 
+/*
 #define FRAMES_MAX 64 // Maximum call depth
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
@@ -32,16 +33,19 @@ typedef struct {
     size_t next_gc_run;                 // GC: Threshold for next GC run
     ObjString* init_str;                // To cache the string "init"
 } VM;
+*/
 
 // Enum for interpret result.
 // Will be used in the future by the compiler to report
 // static errors and by the VM to report runtime errors.
 typedef enum {
+    INTERPRET_STARTING,
     INTERPRET_OK,
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR
 } InterpretResult;
 
+/*
 // Declare "extern" to let any file that imports this header
 // file to be able to use the global VM.
 extern VM vm;
@@ -60,5 +64,6 @@ void push(Value val);
 
 // Pop the Value at the top of the VM's stack
 Value pop();
+*/
 
 #endif // !CLOX_VM_H

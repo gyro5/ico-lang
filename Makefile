@@ -4,12 +4,14 @@ CFLAGS := -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -std=
 
 # Files
 SRC_DIR := source
-HEADERS := $(wildcard $(SRC_DIR)/*.h)
-SOURCES := $(wildcard $(SRC_DIR)/*.c)
+HEADERS := $(wildcard $(SRC_DIR)/ico_*.h)
+SOURCES := $(wildcard $(SRC_DIR)/ico_*.c) main.c
+# HEADERS := source/ico_common.h source/ico_scanner.h
+# SOURCES := source/ico_scanner.c source/main.c
 DEBUG_OBJS := $(addprefix build/debug/, $(notdir $(SOURCES:.c=.o)))
 RELEASE_OBJS := $(addprefix build/release/, $(notdir $(SOURCES:.c=.o)))
 
-# Note: 
+# Note:
 # - $@ is target, $< is first prerequisite, $^ is all prerequisites.
 #
 # - For pattern rules (like "build/debug/%.o"), both the target and
@@ -23,11 +25,11 @@ default: debug
 
 all: debug release
 
-debug: build/clox
+debug: build/ico
 
-release: build/clox_release
+release: build/ico_release
 
-build/clox: $(DEBUG_OBJS)
+build/ico: $(DEBUG_OBJS)
 	mkdir -p build
 	$(CC) $(CFLAGS) -O0 -DDEBUG -g $^ -o $@
 
@@ -36,7 +38,7 @@ build/debug/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	$(CC) $(CFLAGS) -O0 -DDEBUG -g -c -o $@ $<
 
 # Release build
-build/clox_release: $(RELEASE_OBJS)
+build/ico_release: $(RELEASE_OBJS)
 	mkdir -p build
 	$(CC) $(CFLAGS) -O3 -flto $^ -o $@
 

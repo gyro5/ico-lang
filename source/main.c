@@ -2,30 +2,49 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "clox_common.h"
-#include "clox_chunk.h"
-#include "clox_debug.h"
-#include "clox_vm.h"
+// #include "simbolo_common.h"
+// #include "simbolo_chunk.h"
+// #include "simbolo_debug.h"
+#include "ico_vm.h"
 
 //------------------------------
 //      STATIC PROTOTYPES
 //------------------------------
+
+// TODO: add colors
+const char* repl_prompt[] = {
+    [INTERPRET_STARTING] = "(o_o) ",
+    [INTERPRET_OK] = "(^_^) ",
+    [INTERPRET_COMPILE_ERROR] = "(-_-) ",
+    [INTERPRET_RUNTIME_ERROR] = "(>_<) ",
+};
+
+// #define run_code(code) vm_interpret(code)
+#define run_code(code) scan_code(code)
+
+static InterpretResult scan_code(const char* code) {
+    // TODO
+
+
+    return INTERPRET_COMPILE_ERROR;
+}
 
 // Run the clox REPL
 static void run_repl() {
     // To hold the current line of REPL code.
     // Limit the line size to 1024 for simplicity's sake.
     char line[1024];
+    InterpretResult res = INTERPRET_STARTING;
 
     for (;;) {
-        printf("clox> ");
+        printf("%s", repl_prompt[res]);
 
         if (!fgets(line, sizeof(line), stdin)) {
             printf("Exiting Lox REPL...\n");
             break;
         }
 
-        vm_interpret(line);
+        res = run_code(line);
     }
 }
 
@@ -72,7 +91,7 @@ static char* read_file(const char* path) {
 // Run a Lox script
 static void run_script(char* path) {
     char* source_code = read_file(path);
-    InterpretResult result = vm_interpret(source_code);
+    InterpretResult result = run_code(source_code);
     free(source_code);
 
     if (result == INTERPRET_COMPILE_ERROR) {
@@ -84,11 +103,11 @@ static void run_script(char* path) {
 }
 
 //------------------------------
-//      MAIN CLOX RUNTIME
+//         MAIN RUNTIME
 //------------------------------
 
 int main(int argc, char *argv[]) {
-    init_vm();
+    // init_vm();
 
     // Script mode or REPL mode
     if (argc == 1) {
@@ -102,7 +121,7 @@ int main(int argc, char *argv[]) {
         exit(64);
     }
 
-    free_vm();
+    // free_vm();
     return 0;
 }
 
