@@ -20,7 +20,7 @@ const char* repl_prompt[] = {
     [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(>_<) " COLOR_RESET,
 };
 
-// #define run_code(code) vm_interpret(code)
+#define run_code(code) vm_interpret(code)
 
 #ifdef DEBUG_PRINT_TOKEN
 

@@ -12,11 +12,11 @@
 #define COLOR_RESET   "\x1b[0m"
 #define COLOR_BOLD    "\x1b[1m"
 
-// #define DEBUG_PRINT_BYTECODE
-// #define DEBUG_TRACE_EXECUTION
+#define DEBUG_PRINT_BYTECODE
+#define DEBUG_TRACE_EXECUTION
 // #define DEBUG_STRESS_GC
 // #define DEBUG_LOG_GC
-#define DEBUG_PRINT_TOKEN
+// #define DEBUG_PRINT_TOKEN
 
 #define UINT8_COUNT (UINT8_MAX + 1)
 

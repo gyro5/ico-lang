@@ -2,30 +2,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "clox_common.h"
-#include "clox_compiler.h"
-#include "clox_scanner.h"
-#include "clox_value.h"
-#include "clox_object.h"
-#include "clox_memory.h"
+#include "ico_common.h"
+#include "ico_compiler.h"
+#include "ico_scanner.h"
+#include "ico_value.h"
+// #include "ico_object.h"
+#include "ico_memory.h"
 
 #ifdef DEBUG_PRINT_BYTECODE
-#include "clox_debug.h"
+#include "ico_debug.h"
 #endif
-
+/*
 // Note that C implicitly creates enum values
 // from lowest to highest, which is what we want.
 typedef enum {
     PREC_NONE,          // lowest precedence level
     PREC_ASSIGNMENT,    // =
-    PREC_OR,            // or
-    PREC_AND,           // and
+    PREC_OR,            // |
+    PREC_AND,           // &
     PREC_EQUALITY,      // == !=
     PREC_COMPARISON,    // < > <= >=
     PREC_TERM,          // + -
-    PREC_FACTOR,        // * /
+    PREC_FACTOR,        // * / %
     PREC_UNARY,         // ! -
-    PREC_CALL,          // . ()
+    PREC_CALL,          // . () []
     PREC_PRIMARY
 } Precedence;
 
@@ -41,14 +41,14 @@ typedef struct {
 } ParseRule;
 
 typedef struct {
-    LoxToken curr_token;
-    LoxToken prev_token;
+    Token curr_token;
+    Token prev_token;
     bool had_error;
     bool panicking;
 } Parser;
 
 typedef struct {
-    LoxToken var_name;  // The local variable name
+    Token var_name;  // The local variable name
     int depth;          // The scope depth of the local variable
     bool is_captured;   // Whether the variable is captured by a closure
 } LocalVar;
@@ -169,7 +169,7 @@ ParseRule parse_rules[] = {
 //------------------------------
 
 // Report error at the passed token.
-static void error_at(LoxToken* token, const char* msg) {
+static void error_at(Token* token, const char* msg) {
     // Don't report errors if already in panic mode
     if (parser.panicking) {
         return;
@@ -262,8 +262,8 @@ static void consume_mandatory(TokenType type, const char* error_msg) {
 
 // Create a synthetic token that doesn't exist in the source code.
 // (The token type and line number don't matter and are ignored).
-static LoxToken synthetic_token(const char* text) {
-    LoxToken token;
+static Token synthetic_token(const char* text) {
+    Token token;
     token.start = text;
     token.length = (int)strlen(text);
     return token;
@@ -429,13 +429,13 @@ static void parse_expr_with_precedence(Precedence precedence) {
         parse_infix(can_assign);
     }
 
-    /*
+
     can_assign is always true at top-level due to parse_expression()
     calling this function with PREC_ASSIGNMENT. If can_assign is false,
     the "=" will not be consumed, so when control returns to the
     top level call of this function, we will have can_assign=true
     and the remaining "=", which will be catched as follows.
-    */
+
     if (can_assign && match_next_token(TOKEN_EQUAL)) {
         error_prev_token("Invalid assignment target.");
     }
@@ -575,21 +575,21 @@ static void synchronize() {
 
 // Add an identifier name to the constant pool from its
 // lexeme in the source code, then return the constant index.
-static uint8_t identifier_constant_index(LoxToken* token) {
+static uint8_t identifier_constant_index(Token* token) {
     return add_constant_to_pool(
         obj_val(copy_and_create_str_obj(token->start, token->length))
     );
 }
 
 // Return two if two identifiers are the same
-static bool identifiers_equal(LoxToken* a, LoxToken* b) {
+static bool identifiers_equal(Token* a, Token* b) {
     if (a->length != b->length) return false;
     return memcmp(a->start, b->start, a->length) == 0;
 }
 
 // Add a local variable to the array of local variables
 // of the compiler struct (for resolving purpose).
-static void add_local_var(LoxToken var_name) {
+static void add_local_var(Token var_name) {
     // If not enough stack space
     if (curr_compiler->local_var_count == UINT8_COUNT) {
         error_prev_token("Too many local variables in function.");
@@ -617,7 +617,7 @@ static void declare_variable() {
     if (curr_compiler->scope_depth == 0) return;
 
     // Check for any declared variable with the same name
-    LoxToken* var_name = &parser.prev_token;
+    Token* var_name = &parser.prev_token;
     for (int i = curr_compiler->local_var_count - 1; i >= 0; i--) {
         LocalVar* curr_var = &curr_compiler->local_vars[i];
 
@@ -667,7 +667,7 @@ static void define_variable(uint8_t var_name_const_idx) {
 
 // Resolve a local variable and return its index on the
 // VM stack, or return -1 if it's not a local variable
-static int resolve_local(Compiler* compiler, LoxToken* var_name) {
+static int resolve_local(Compiler* compiler, Token* var_name) {
     // Linear search the array of local vars.
     // Walk backward to find the latest declared variable,
     // which allows shadowing to work.
@@ -717,7 +717,7 @@ static int add_upvalue(Compiler* compiler, uint8_t idx, bool is_local) {
 
 // Resolve an upvalue and return its upvalue index in the upvalue
 // array, or return -1 if it's not found.
-static int resolve_upvalue(Compiler* compiler, LoxToken* var_name) {
+static int resolve_upvalue(Compiler* compiler, Token* var_name) {
     // No enclosing function (aka top-level code)
     if (compiler->enclosing == NULL) return -1;
 
@@ -742,7 +742,7 @@ static int resolve_upvalue(Compiler* compiler, LoxToken* var_name) {
 
 // Helper function for parse_variable. Parse and compile a variable
 // usage with the correct variable type (local, upvalue, or global).
-static void named_variable(LoxToken name, bool can_assign) {
+static void named_variable(Token name, bool can_assign) {
     // Deciding between global and local variable
     uint8_t get_op, set_op;
     int arg = resolve_local(curr_compiler, &name); // Scope depth if local
@@ -1205,7 +1205,7 @@ static void parse_super(bool can_assign) {
     // (which at runtime will create a new bound method that binds
     // the superclass method with the receiver).
     named_variable(synthetic_token("this"), false);     // Will be a local var
-    LoxToken syn_super = synthetic_token("super");
+    Token syn_super = synthetic_token("super");
 
     // Faster invocation optimization (optional)
     if (match_next_token(TOKEN_LEFT_PAREN)) {
@@ -1245,7 +1245,7 @@ static void parse_method() {
 static void parse_class_decl() {
     // Parse the class name (as an identifier constant)
     consume_mandatory(TOKEN_IDENTIFIER, "Expect class name.");
-    LoxToken class_name = parser.prev_token;
+    Token class_name = parser.prev_token;
     uint8_t name_constant = identifier_constant_index(&class_name);
     declare_variable(); // for local class decl
 
@@ -1326,40 +1326,54 @@ static void parse_declaration() {
     // To synchronize when there is a compile error
     if (parser.panicking) synchronize();
 }
-
+*/
 //----------------------------------
 //     THE ONE HEADER FUNCTION
 //----------------------------------
 
-ObjFunction* compile(const char *source_code) {
+CodeChunk* compile(const char *source_code) {
     // Initialize the scanner, which will be used by the parser
-    init_scanner(source_code);
+    // init_scanner(source_code);
 
-    // Initialize the parser and compiler
-    Compiler compiler;
-    init_compiler(&compiler, TYPE_TOP_LEVEL); // TODO one more line to remove
-    parser.panicking = false;
-    parser.had_error = false;
+    // // Initialize the parser and compiler
+    // Compiler compiler;
+    // init_compiler(&compiler, TYPE_TOP_LEVEL); // TODO one more line to remove
+    // parser.panicking = false;
+    // parser.had_error = false;
 
-    // Make the parser get the first token
-    next_token();
+    // // Make the parser get the first token
+    // next_token();
 
-    // Parsing declaration-level statements until EOF
-    while (!match_next_token(TOKEN_EOF)) {
-        parse_declaration();
-    }
+    // // Parsing declaration-level statements until EOF
+    // while (!match_next_token(TOKEN_EOF)) {
+    //     parse_declaration();
+    // }
 
-    // End of the compiling process
-    ObjFunction* result_func = end_compiler();
-    return parser.had_error ? NULL : result_func;
+    // // End of the compiling process
+    // ObjFunction* result_func = end_compiler();
+    // return parser.had_error ? NULL : result_func;
+
+    CodeChunk* c = malloc(sizeof(CodeChunk));
+    init_chunk(c);
+    append_chunk(c, OP_CONSTANT, 1);
+    uint8_t idx = add_constant(c, INT_VAL(123));
+    append_chunk(c, idx, 1);
+    append_chunk(c, OP_NEGATE, 1);
+
+    append_chunk(c, OP_CONSTANT, 2);
+    idx = add_constant(c, FLOAT_VAL(123.321));
+    append_chunk(c, idx, 2);
+    append_chunk(c, OP_NEGATE, 2);
+
+    return c;
 }
 
-void mark_compiler_roots() {
-    Compiler* compiler = curr_compiler;
+// void mark_compiler_roots() {
+//     Compiler* compiler = curr_compiler;
 
-    // Mark the ObjFunction of all linked compiler structs
-    while (compiler != NULL) {
-        mark_object((Obj*)compiler->function);
-        compiler = compiler->enclosing;
-    }
-}
+//     // Mark the ObjFunction of all linked compiler structs
+//     while (compiler != NULL) {
+//         mark_object((Obj*)compiler->function);
+//         compiler = compiler->enclosing;
+//     }
+// }

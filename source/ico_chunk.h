@@ -1,18 +1,18 @@
-#ifndef CLOX_CHUNK_H
-#define CLOX_CHUNK_H
+#ifndef ICO_CHUNK_H
+#define ICO_CHUNK_H
 
-#include "clox_common.h"
-#include "clox_value.h"
+#include "ico_common.h"
+#include "ico_value.h"
 
 // Enum for types of opcode
 typedef enum {
-    OP_RETURN,      // [simple ret]
+    OP_RETURN,      // [op_ret]: Return
 
     // Constants instructions
     OP_CONSTANT,    // [opcode][const_idx]: Push a constant on the VM stack
-    OP_NIL,         // [constant nil]: Push "nil" on the VM stack
-    OP_TRUE,        // [constant true]: Push "true" on the VM stack
-    OP_FALSE,       // [constant false]: Push "false" on the VM stack
+    OP_NULL,        // [constant null]: Push null on the VM stack
+    OP_TRUE,        // [constant true]: Push true on the VM stack
+    OP_FALSE,       // [constant false]: Push false on the VM stack
 
     // Arithmetic instructions (operands are from the VM stack)
     OP_NEGATE,      // [simple negate]
@@ -50,21 +50,21 @@ typedef enum {
     OP_SET_UPVALUE,
     OP_CLOSE_UPVALUE,   // [op_close_upvalue]: Hoist the local var at stack top to the heap
 
-    // OOP-related instructions
-    OP_CLASS,           // [op_class][class_name_const_idx]: Create a new ObjClass
-    OP_GET_PROPERTY,    // [op_get][property_name_const_idx]
-    OP_SET_PROPERTY,    // [op_set][field_name_const_idx]
-    OP_METHOD,          // [op_method][name_const_idx]
-    OP_INVOKE,          // [op_invoke][name_const_idx][arg_count]: Fast invocation
-    OP_INHERIT,         // [op_inherit]: Add inheritance to a class
-    OP_GET_SUPER,       // [op_get_super][name_const_idx]: Get & bind a superclass method
-    OP_SUPER_INVOKE,    // [op_super_invoke][name_const_idx][arg_count]
+    // OOP-related instructions (WILL BE REMOVED)
+    // OP_CLASS,           // [op_class][class_name_const_idx]: Create a new ObjClass
+    // OP_GET_PROPERTY,    // [op_get][property_name_const_idx]
+    // OP_SET_PROPERTY,    // [op_set][field_name_const_idx]
+    // OP_METHOD,          // [op_method][name_const_idx]
+    // OP_INVOKE,          // [op_invoke][name_const_idx][arg_count]: Fast invocation
+    // OP_INHERIT,         // [op_inherit]: Add inheritance to a class
+    // OP_GET_SUPER,       // [op_get_super][name_const_idx]: Get & bind a superclass method
+    // OP_SUPER_INVOKE,    // [op_super_invoke][name_const_idx][arg_count]
 } OpCode;
 
 typedef struct {
     int size;               // Number of elements
     int capacity;           // Actual capacity
-    uint8_t* code_chunk;    // Array of bytecode
+    uint8_t* chunk;    // Array of bytecode
     int* line_nums;         // Array of line numbers corresponding to the bytecodes
     ValueArray const_pool;  // Array of constant values
 } CodeChunk;
@@ -82,4 +82,4 @@ void free_chunk(CodeChunk* chunk);
 // and return its index in the pool.
 int add_constant(CodeChunk* chunk, Value val);
 
-#endif // !CLOX_CHUNK_H
+#endif // !ICO_CHUNK_H

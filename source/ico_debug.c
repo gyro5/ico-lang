@@ -1,9 +1,9 @@
 #include <stdio.h>
 
-#include "clox_debug.h"
-#include "clox_chunk.h"
-#include "clox_value.h"
-#include "clox_object.h"
+#include "ico_debug.h"
+#include "ico_chunk.h"
+#include "ico_value.h"
+// #include "ico_object.h"
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -19,7 +19,7 @@ static int simple_instruction(const char* ins_name, int offset) {
 // instructions: [opcode][const_idx]
 static int constant_instruction(const char* ins_name, CodeChunk* chunk, int offset) {
     // The index of the constant in the pool is right after the opcode
-    uint8_t constant_idx = chunk->code_chunk[offset + 1];
+    uint8_t constant_idx = chunk->chunk[offset + 1];
 
     // Print the opcode and the constant index.
     // "%-16s" means 16 spaces and left-aligned.
@@ -37,7 +37,7 @@ static int constant_instruction(const char* ins_name, CodeChunk* chunk, int offs
 // Print a byte instruction. General format of these
 // instructions: [opcode][byte]
 static int byte_instruction(const char* name, CodeChunk* chunk, int offset) {
-    uint8_t stack_index = chunk->code_chunk[offset + 1];
+    uint8_t stack_index = chunk->chunk[offset + 1];
     printf("%-16s %4d\n", name, stack_index);
     return offset + 2;
 }
@@ -46,16 +46,16 @@ static int byte_instruction(const char* name, CodeChunk* chunk, int offset) {
 // [jump_opcode][off][set]
 static int jump_instruction(const char* name, int sign, CodeChunk* chunk, int offset) {
     // Calculate the jump distance
-    uint16_t jump_dist = (uint16_t)(chunk->code_chunk[offset + 1] << 8);
-    jump_dist |= chunk->code_chunk[offset + 2];
+    uint16_t jump_dist = (uint16_t)(chunk->chunk[offset + 1] << 8);
+    jump_dist |= chunk->chunk[offset + 2];
     printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump_dist);
     return offset + 3;
 }
 
 // Print an invoke instruction
 static int invoke_instruction(const char* name, CodeChunk* chunk, int offset) {
-    uint8_t const_idx = chunk->code_chunk[offset + 1];
-    uint8_t arg_count = chunk->code_chunk[offset + 2];
+    uint8_t const_idx = chunk->chunk[offset + 1];
+    uint8_t arg_count = chunk->chunk[offset + 2];
     printf("%-16s (%d args) %4d '", name, arg_count, const_idx);
     print_value(chunk->const_pool.values[const_idx]);
     printf("'\n");
@@ -99,7 +99,7 @@ int disass_instruction(CodeChunk* chunk, int offset) {
     }
 
     // Switch on the curent opcode to choose how to print the instruction
-    uint8_t instruction = chunk->code_chunk[offset];
+    uint8_t instruction = chunk->chunk[offset];
     switch (instruction) {
         case OP_RETURN:
             return simple_instruction("OP_RETURN", offset);
@@ -122,8 +122,8 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_CONSTANT:
             return constant_instruction("OP_CONSTANT", chunk, offset);
 
-        case OP_NIL:
-            return simple_instruction("OP_NIL", offset);
+        case OP_NULL:
+            return simple_instruction("OP_NULLL", offset);
 
         case OP_TRUE:
             return simple_instruction("OP_TRUE", offset);
@@ -175,7 +175,7 @@ int disass_instruction(CodeChunk* chunk, int offset) {
 
         case OP_CALL:
             return byte_instruction("OP_CALL", chunk, offset);
-
+/*
         case OP_CLOSURE: {
             offset++;
 
@@ -232,7 +232,7 @@ int disass_instruction(CodeChunk* chunk, int offset) {
 
         case OP_SUPER_INVOKE:
             return invoke_instruction("OP_SUPER_INVOKE", chunk, offset);
-
+*/
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

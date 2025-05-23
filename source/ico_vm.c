@@ -3,13 +3,13 @@
 #include <string.h>
 #include <time.h>
 
-#include "clox_common.h"
-#include "clox_vm.h"
-#include "clox_debug.h"
-#include "clox_compiler.h"
-#include "clox_value.h"
-#include "clox_memory.h"
-#include "clox_object.h"
+#include "ico_common.h"
+#include "ico_vm.h"
+#include "ico_debug.h"
+#include "ico_compiler.h"
+#include "ico_value.h"
+#include "ico_memory.h"
+// #include "ico_object.h"
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -19,11 +19,11 @@
 static void reset_stack() {
     // Reset the stack pointer back to index 0 of the stack
     vm.stack_top = vm.stack;
-    vm.frame_count = 0;
+    // vm.frame_count = 0;
 
     // Reset the list of open upvalues each time a top-level
     // "function" is executed (ex. each REPL line)
-    vm.open_upvalues = NULL;
+    // vm.open_upvalues = NULL;
 }
 
 // Peek the Value at distance away from the stack top
@@ -39,9 +39,10 @@ static Value peek(int distance) {
 // Return the falsiness of a clox Value
 // (False only when nil or boolean false)
 static bool is_falsey(Value val) {
-    return is_nil(val) || (is_bool(val) && !as_bool(val));
+    return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
+/*
 // Perform concatenation on the 2 strings on the stack top,
 // assuming they are already checked to be strings
 static void concat_strings() {
@@ -305,6 +306,7 @@ static bool invoke_helper(ObjString* name, int arg_count) {
     // Not a field -> Invoke normally as a method
     return invoke_from_class(instance->class_, name, arg_count);
 }
+*/
 
 /*************************************
     THE MAIN VM EXECUTION FUNCTION
@@ -312,26 +314,29 @@ static bool invoke_helper(ObjString* name, int arg_count) {
 
 // Run the current bytecode chunk in the VM
 static InterpretResult vm_run() {
-    CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
+    // CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
+    VM* curr_frame = &vm;
 
 #ifdef  DEBUG_TRACE_EXECUTION
     printf("\n============ Execution Trace =============\n");
 #endif
 
 // Return the next byte in the code chunk, then increment ip
-#define read_next_byte() (*curr_frame->ip++)
+#define READ_NEXT_BYTE() (*curr_frame->ip++)
 
 // Get the constant indexed by the next byte
-#define read_constant() \
-    (curr_frame->closure->function->chunk.const_pool.values[read_next_byte()])
+// #define READ_CONSTANT() "\"
+//     (curr_frame->closure->function->chunk.const_pool.values[read_next_byte()])
+#define READ_CONSTANT() \
+    (curr_frame->chunk->const_pool.values[READ_NEXT_BYTE()])
 
 // Get the next 2 bytes as an unsigned short
-#define read_short() \
+#define READ_SHORT() \
     (curr_frame->ip += 2, \
     (uint16_t)((curr_frame->ip[-2] << 8) | curr_frame->ip[-1]))
 
 // Same as read_constant() but also convert to ObjString*
-#define read_string() as_string(read_constant())
+// #define READ_STRING() AS(read_constant())
 
 // Common macro for the binary arithmetic instruction. "op" is
 // the binary operation, and "retValType" is the macro of the
@@ -370,8 +375,10 @@ static InterpretResult vm_run() {
 
         // If in debug mode, print the next instruction to be executed.
         // disass_instruction() needs an int offset, hence the pointer math
-        disass_instruction(&curr_frame->closure->function->chunk,
-            (int)(curr_frame->ip - curr_frame->closure->function->chunk.code_chunk));
+        // disass_instruction(&curr_frame->closure->function->chunk,
+        //     (int)(curr_frame->ip - curr_frame->closure->function->chunk.code_chunk));
+        disass_instruction(curr_frame->chunk,
+            (int)(curr_frame->ip - curr_frame->chunk->chunk));
 
         printf("\n");
 #endif
@@ -380,43 +387,50 @@ static InterpretResult vm_run() {
             OPCODE SWITCHING
         ************************/
         uint8_t instruction;
-        switch (instruction = read_next_byte()) {
+            // printf("%d", instruction);
+        switch (instruction= READ_NEXT_BYTE()) {
             case OP_CONSTANT: {
                 // Quick note: The {} is required because before C23,
                 // declaring a variable right after a label (which is
                 // "case OP_CONSTANT:" in this case) is not allowed.
-                Value constant = read_constant();
+                Value constant = READ_CONSTANT();
                 push(constant);
                 break;
             }
 
-            case OP_NIL: {
-                push(nil_val);
-                break;
-            }
+            // case OP_NULL: {
+            //     push(NULL_VAL);
+            //     break;
+            // }
 
-            case OP_TRUE: {
-                push(bool_val(true));
-                break;
-            }
+            // case OP_TRUE: {
+            //     push(BOOL_VAL(true));
+            //     break;
+            // }
 
-            case OP_FALSE: {
-                push(bool_val(false));
-                break;
-            }
+            // case OP_FALSE: {
+            //     push(BOOL_VAL(false));
+            //     break;
+            // }
 
             case OP_NEGATE: {
                 // Check for number operand
-                if (!is_number(peek(0))) {
-                    runtime_error("Operand must be a number.");
+                Value val = peek(0);
+
+                if (IS_INT(val)) {
+                    push(INT_VAL(-AS_INT(pop())));
+                }
+                else if (IS_FLOAT(val)) {
+                    push(FLOAT_VAL(-AS_FLOAT(pop())));
+                }
+                else {
+                    printf("Operand must be an int or a float."); // TODO change to runtime_error
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
-                // Negate the value
-                push(number_val(-as_number(pop())));
                 break;
             }
-
+/*
             // OP_ADD is different because it also handles string concatenation
             case OP_ADD: {
                 if (is_string(peek(0)) && is_string(peek(1))) {
@@ -454,29 +468,30 @@ static InterpretResult vm_run() {
 
             case OP_GREATER: binary_op(bool_val, >); break;
             case OP_LESS:    binary_op(bool_val, <); break;
-
+*/
             case OP_RETURN: {
-                Value ret_val = pop();
+                // Value ret_val = pop();
 
-                // Pop the call frame from the call stack
-                vm.frame_count--;
+                // // Pop the call frame from the call stack
+                // vm.frame_count--;
 
-                // Close all open upvalues of the current function
-                close_all_upvalues_from(curr_frame->base_ptr);
+                // // Close all open upvalues of the current function
+                // close_all_upvalues_from(curr_frame->base_ptr);
 
-                // No more call frame --> Done!
-                if (vm.frame_count == 0) {
-                    pop(); // Pop the top-level ObjFunction
-                    return INTERPRET_OK;
-                }
+                // // No more call frame --> Done!
+                // if (vm.frame_count == 0) {
+                //     pop(); // Pop the top-level ObjFunction
+                //     return INTERPRET_OK;
+                // }
 
-                // Otherwise, return to the caller
-                vm.stack_top = curr_frame->base_ptr;
-                push(ret_val);
-                curr_frame = &vm.frames[vm.frame_count - 1];
+                // // Otherwise, return to the caller
+                // vm.stack_top = curr_frame->base_ptr;
+                // push(ret_val);
+                // curr_frame = &vm.frames[vm.frame_count - 1];
+                return INTERPRET_OK;
                 break;
             }
-
+/*
             case OP_PRINT: {
                 // The expression has been evaluated by the preceeding
                 // bytecodes and pushed on the VM's stack.
@@ -744,23 +759,24 @@ static InterpretResult vm_run() {
                 curr_frame = &vm.frames[vm.frame_count - 1];
                 break;
             }
+                */
         }
     }
 
-// Because these macros are only used in this function.
-#undef next_byte
-#undef read_constant
+// Because these macros are only used in this function. TODO
+#undef READ_NEXT_BYTE
+#undef READ_CONSTANT
 #undef read_string
-#undef read_short
+#undef READ_SHORT
 #undef binary_op
 }
 
 //------------------------------
-//   NATIVE FUNCTIONS FOR LOX
+//      NATIVE FUNCTIONS
 //------------------------------
 
 static Value clock_native(int arg_count, Value* args) {
-    return number_val((double)clock() / CLOCKS_PER_SEC);
+    return INT_VAL(clock() / CLOCKS_PER_SEC);
 }
 
 //------------------------------
@@ -773,64 +789,65 @@ VM vm;
 void init_vm() {
     reset_stack();
 
-    // No allocated Objs yet
-    vm.allocated_objs = NULL;
+    vm.ip = NULL;
+    vm.chunk = NULL;
 
-    // Initialize the gray stack (for GC)
-    vm.gray_count = 0;
-    vm.gray_capacity = 0;
-    vm.gray_stack = NULL;
+    // // No allocated Objs yet
+    // vm.allocated_objs = NULL;
 
-    // Initialize the GC trigger
-    vm.bytes_allocated = 0;
-    vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
+    // // Initialize the gray stack (for GC)
+    // vm.gray_count = 0;
+    // vm.gray_capacity = 0;
+    // vm.gray_stack = NULL;
 
-    // Initialize the hash tables
-    init_table(&vm.globals); // table of global variables
-    init_table(&vm.strings); // table for string interning
+    // // Initialize the GC trigger
+    // vm.bytes_allocated = 0;
+    // vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
 
-    // Add native functions
-    define_native_func("clock", clock_native);
+    // // Initialize the hash tables
+    // init_table(&vm.globals); // table of global variables
+    // init_table(&vm.strings); // table for string interning
 
-    // Intern the string "init" for initializers
-    vm.init_str = NULL; // To prevent the GC from accessing uninitialized memory
-    vm.init_str = copy_and_create_str_obj("init", 4);
+    // // Add native functions
+    // define_native_func("clock", clock_native);
 }
 
 void free_vm() {
-    free_table(&vm.globals);
-    free_table(&vm.strings);
-    vm.init_str = NULL;
-    free_objects();
+    // free_table(&vm.globals);
+    // free_table(&vm.strings);
+    // vm.init_str = NULL;
+    // free_objects();
 }
 
 InterpretResult vm_interpret(const char *source_code) {
-    // Compile the source code and get the ObjFunction for
-    // top-level code
-    ObjFunction* top_level_func = compile(source_code);
-    if (top_level_func == NULL) return INTERPRET_COMPILE_ERROR;
+    // // Compile the source code and get the ObjFunction for top-level code
+    // ObjFunction* top_level_func = compile(source_code);
+    // if (top_level_func == NULL) return INTERPRET_COMPILE_ERROR;
 
-    // Set up the top-level "function" as the first call
-    push(obj_val(top_level_func));
-    ObjClosure* top_level_closure = new_closure_obj(top_level_func);
-    pop();
-    push(obj_val(top_level_closure));
-    call_helper(top_level_closure, 0);
+    // // Set up the top-level "function" as the first call
+    // push(obj_val(top_level_func));
+    // ObjClosure* top_level_closure = new_closure_obj(top_level_func);
+    // pop();
+    // push(obj_val(top_level_closure));
+    // call_helper(top_level_closure, 0);
+
+    init_vm();
+
+    vm.chunk = compile(source_code);
+    vm.ip = vm.chunk->chunk;
+
+    printf("VM STARTING\n");
+
 
     // Run and return the result
     return vm_run();
 }
 
 /*
-It seems that clox doesn't care to check for empty stack
-or stack overflow, possibly because we can say that trying
-to use more than the stack capacity is undefined, and the
-clox code will take care to not pop an empty stack?
-
---> The reason is performance. Pop and push is used a lot,
-and checking for empty/overflowed stack is expensive. Instead,
-the compiler takes care to use precise numbers of pops and pushes,
-allowing stack operation to be fast.
+The reason for not checking for empty stack or stack overflow
+is performance. Pop and push is used a lot, and checking is expensive.
+Instead, the compiler takes care to use precise numbers of
+pops and pushes, allowing stack operation to be fast.
 */
 
 void push(Value val) {
