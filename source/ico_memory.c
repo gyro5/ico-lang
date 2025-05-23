@@ -1,19 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include "clox_memory.h"
-#include "clox_vm.h"
-#include "clox_compiler.h"
-
-#ifdef DEBUG_LOG_GC
-
-// #include "clox_debug.h" // Seems to be unnecessary
-
-#endif
+#include "ico_memory.h"
+// #include "clox_vm.h"
+// #include "clox_compiler.h"
 
 #define GC_HEAP_GROW_FACTOR 2  // Arbitrarily chosen
 
-/* 
+/*
 * This function works as follows.
 * old_cap:    new_cap:    operation:
 * 0           != 0        allocate new block
@@ -22,6 +16,7 @@
 * != 0        > old_cap   grow curent allocation
 */
 void* reallocate(void* ptr, size_t old_size, size_t new_size) {
+    /*
     vm.bytes_allocated += new_size - old_size;
 
     if (new_size > old_size) {
@@ -35,6 +30,7 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size) {
             collect_garbage();
         }
     }
+        */
 
     if (new_size == 0) {
         free(ptr);
@@ -50,7 +46,7 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size) {
 
     return new_ptr;
 }
-
+/*
 static void free_one_object(Obj* obj) {
 #ifdef DEBUG_LOG_GC
     printf("%p free type %d\n", (void*)obj, obj->type);
@@ -86,7 +82,7 @@ static void free_one_object(Obj* obj) {
             free_array(ObjUpValue*, closure->upvalues, closure->upvalue_count);
 
             free_ptr(ObjClosure, obj);
-            
+
             // Don't free the wrapped ObjFunction as it can be
             // shared by multiple ObjClosure.
             break;
@@ -212,18 +208,18 @@ static void blacken_one_object(Obj* obj) {
     print_value(obj_val(obj));
     printf("\n");
 #endif
-    
+
     switch (obj->type) {
         // These Obj subtypes have no reference
         case OBJ_NATIVE:
         case OBJ_STRING:
             break;
-        
+
         case OBJ_UPVALUE:
             // Mark closed-over value that is no longer on the stack
             mark_value(((ObjUpValue*)obj)->closed);
             break;
-        
+
         case OBJ_FUNCTION: {
             ObjFunction* func = (ObjFunction*)obj;
 
@@ -340,3 +336,4 @@ void collect_garbage() {
         before - vm.bytes_allocated, before, vm.bytes_allocated, vm.next_gc_run);
 #endif
 }
+*/

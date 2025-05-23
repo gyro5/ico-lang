@@ -7,6 +7,7 @@
 // #include "simbolo_debug.h"
 #include "ico_vm.h"
 #include "ico_scanner.h"
+#include "ico_value.h"
 
 //------------------------------
 //      STATIC PROTOTYPES
@@ -127,6 +128,8 @@ static void run_script(char* path) {
 
 int main(int argc, char *argv[]) {
     // init_vm();
+
+
 
     // Script mode or REPL mode
     if (argc == 1) {

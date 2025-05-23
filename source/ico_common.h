@@ -1,5 +1,3 @@
-// Common header file for clox
-
 #ifndef ICO_COMMON_H
 #define ICO_COMMON_H
 
