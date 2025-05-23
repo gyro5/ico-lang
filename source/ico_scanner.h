@@ -79,7 +79,7 @@ typedef struct {
 void init_scanner(const char* source_code);
 
 // Scan the source code and return the next token
-Token next_token();
+Token scan_next_token();
 
 // Print a token in a specific format
 void print_token(Token token);

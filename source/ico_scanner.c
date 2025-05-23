@@ -209,7 +209,7 @@ void init_scanner(const char *source_code) {
     sc.line_num = 1;
 }
 
-Token next_token() {
+Token scan_next_token() {
     // Skip all whitespaces before the next token
     skip_whitespace_comment();
 

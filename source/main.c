@@ -3,11 +3,9 @@
 #include <string.h>
 
 #include "ico_common.h"
-// #include "simbolo_chunk.h"
-// #include "simbolo_debug.h"
 #include "ico_vm.h"
 #include "ico_scanner.h"
-#include "ico_value.h"
+#include "ico_compiler.h"
 
 //------------------------------
 //      STATIC PROTOTYPES
@@ -20,7 +18,7 @@ const char* repl_prompt[] = {
     [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(>_<) " COLOR_RESET,
 };
 
-#define run_code(code) vm_interpret(code)
+// #define run_code(code) vm_interpret(code)
 
 #ifdef DEBUG_PRINT_TOKEN
 
@@ -29,12 +27,14 @@ const char* repl_prompt[] = {
 static InterpretResult scan_code(const char* code) {
     init_scanner(code);
 
-    Token t = next_token();
+    Token t = scan_next_token();
 
     while (t.type != TOKEN_EOF) {
         print_token(t);
-        t = next_token();
+        t = scan_next_token();
     }
+
+    compile(code);
 
     return INTERPRET_OK;
 }

@@ -3,7 +3,7 @@
 
 #include "ico_memory.h"
 #include "ico_value.h"
-// #include "clox_object.h"
+#include "ico_object.h"
 
 void init_value_array(ValueArray* val_arr) {
     val_arr->values = NULL;
@@ -50,8 +50,7 @@ void print_value(Value val) {
             break;
 
         case VAL_OBJ:
-            printf("TODO object");
-            // print_object(val);
+            print_object(val);
             break;
 
         case VAL_ERROR:

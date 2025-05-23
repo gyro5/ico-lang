@@ -39,7 +39,7 @@ typedef struct {
 #define NULL_VAL        ((Value){VAL_NULL, {.num_int = 0}})
 #define INT_VAL(i)      ((Value){VAL_INT, {.num_int = i}})
 #define FLOAT_VAL(f)    ((Value){VAL_FLOAT, {.num_float = f}})
-#define OBJ_VAL(obj)    ((Value){VAL_OBJ, {.obj = (Obj*)obj}})
+#define OBJ_VAL(o)      ((Value){VAL_OBJ, {.obj = (Obj*)o}})
 #define ERROR_VAL(s)    ((Value){VAL_ERROR, {.error = s}})
 
 // Macros to convert an Ico Value to a C-native value

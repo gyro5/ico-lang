@@ -1,11 +1,11 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "clox_memory.h"
-#include "clox_object.h"
-#include "clox_value.h"
-#include "clox_vm.h"
-#include "clox_table.h"
+#include "ico_memory.h"
+#include "ico_object.h"
+#include "ico_value.h"
+#include "ico_vm.h"
+// #include "ico_table.h"
 
 //---------------------------------------
 //      STATIC FUNCTIONS AND MACROS
@@ -36,25 +36,25 @@ static Obj* allocate_object(size_t size, ObjType type) {
 }
 
 // Allocate a memory block for a specific Obj subtype.
-#define allocate_obj(type, type_enum) \
+#define ALLOCATE_OBJ(type, type_enum) \
     (type*)allocate_object(sizeof(type), type_enum)
 
 // Allocate and create an ObjString with the passed
 // content and length. The passed char* (allocated block)
 // is used as-is and owned by the returned ObjString.
 static ObjString* allocate_str_obj(char* chars, int length, uint32_t hash) {
-    ObjString* obj_str = allocate_obj(ObjString, OBJ_STRING);
+    ObjString* obj_str = ALLOCATE_OBJ(ObjString, OBJ_STRING);
     obj_str->chars = chars;
     obj_str->length = length;
     obj_str->hash = hash;
 
     // To prevent the ObjString from being sweeped by the GC
-    push(obj_val(obj_str));
+    // push(OBJ_VAL(obj_str));
 
     // Intern the string whenever we create a new one
-    table_set(&vm.strings, obj_str, nil_val);
+    // table_set(&vm.strings, obj_str, nil_val);
 
-    pop();
+    // pop();
 
     return obj_str;
 }
@@ -92,13 +92,13 @@ ObjString* copy_and_create_str_obj(const char* source_str, int length) {
     uint32_t hash = hash_string(source_str, length);
 
     // Check for interned string and return that if available
-    ObjString* interned = table_find_string(&vm.strings, source_str, length, hash);
-    if (interned != NULL) return interned;
+    // ObjString* interned = table_find_string(&vm.strings, source_str, length, hash);
+    // if (interned != NULL) return interned;
 
     // Allocate memory for the content of the ObjString,
     // including the NULL terminator.
-    char* new_str = allocate(char, length + 1);
-    
+    char* new_str = ALLOCATE(char, length + 1);
+
     // Copy the string content and add the NULL terminator.
     memcpy(new_str, source_str, length);
     new_str[length] = '\0';
@@ -114,28 +114,28 @@ ObjString* take_own_and_create_str_obj(char* chars, int length) {
     uint32_t hash = hash_string(chars, length);
 
     // Check for interned string
-    ObjString* interned = table_find_string(&vm.strings, chars, length, hash);
-    if (interned != NULL) {
-        // Found interned -> Free the current char array
-        // and use the interned one.
-        free_array(char, chars, length + 1);
-        return interned;
-    }
+    // ObjString* interned = table_find_string(&vm.strings, chars, length, hash);
+    // if (interned != NULL) {
+    //     // Found interned -> Free the current char array
+    //     // and use the interned one.
+    //     FREE_ARRAY(char, chars, length + 1);
+    //     return interned;
+    // }
 
     // Otherwise, keep and use the current char array
     return allocate_str_obj(chars, length, hash);
 }
 
 ObjUpValue* new_upvalue_obj(Value* slot) {
-    ObjUpValue* upvalue = allocate_obj(ObjUpValue, OBJ_UPVALUE);
+    ObjUpValue* upvalue = ALLOCATE_OBJ(ObjUpValue, OBJ_UPVALUE);
     upvalue->location = slot;
-    upvalue->closed = nil_val;
+    upvalue->closed = NULL_VAL;
     upvalue->next = NULL;
     return upvalue;
 }
 
 ObjFunction* new_function_obj() {
-    ObjFunction* func = allocate_obj(ObjFunction, OBJ_FUNCTION);
+    ObjFunction* func = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
     func->arity = 0;
     func->name = NULL;
     init_chunk(&func->chunk);
@@ -145,13 +145,13 @@ ObjFunction* new_function_obj() {
 
 ObjClosure* new_closure_obj(ObjFunction* function) {
     // Allocate and initialize the array of upvalues
-    ObjUpValue** upvalues = allocate(ObjUpValue*, function->upvalue_count);
+    ObjUpValue** upvalues = ALLOCATE(ObjUpValue*, function->upvalue_count);
     for (int i = 0; i < function->upvalue_count; i++) {
         upvalues[i] = NULL;
     }
 
     // Allocate the ObjClosure
-    ObjClosure* closure = allocate_obj(ObjClosure, OBJ_CLOSURE);
+    ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
     closure->function = function;
     closure->upvalues = upvalues;
     closure->upvalue_count = function->upvalue_count;
@@ -160,66 +160,33 @@ ObjClosure* new_closure_obj(ObjFunction* function) {
 }
 
 ObjNative* new_native_func_obj(NativeFn c_func) {
-    ObjNative* native = allocate_obj(ObjNative, OBJ_NATIVE);
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
     native->function = c_func;
     return native;
 }
 
-ObjClass* new_class_obj(ObjString* class_name) {
-    ObjClass* class = allocate_obj(ObjClass, OBJ_CLASS);
-    class->name = class_name;
-    init_table(&class->methods);
-    return class;
-}
-
-ObjInstance* new_instance_obj(ObjClass* class_) {
-    ObjInstance* instance = allocate_obj(ObjInstance, OBJ_INSTANCE);
-    instance->class_ = class_;
-    init_table(&instance->fields);
-    return instance;
-}
-
-ObjBoundMethod* new_bound_method(Value receiver, ObjClosure* method) {
-    ObjBoundMethod* bound = allocate_obj(ObjBoundMethod, OBJ_BOUND_METHOD);
-    bound->receiver = receiver;
-    bound->method = method;
-    return bound;
-}
-
 void print_object(Value val) {
-    switch (obj_type(val)) {
+    switch (OBJ_TYPE(val)) {
         case OBJ_STRING:
-            printf("%s", as_c_string(val));
+            printf("%s", AS_C_STRING(val));
             break;
-        
+
         case OBJ_UPVALUE:
             // Should normally be unreachable as upvalues are
             // not first-class values
-            printf("upvalue");
-            break;
-        
-        case OBJ_FUNCTION:
-            print_function_obj(as_function(val));
-            break;
-        
-        case OBJ_CLOSURE:
-            print_function_obj(as_closure(val)->function);
-            break;
-        
-        case OBJ_NATIVE:
-            printf("<native fn>");
-            break;
-        
-        case OBJ_CLASS:
-            printf("<class %s>", as_class(val)->name->chars);
+            printf("<upvalue>");
             break;
 
-        case OBJ_INSTANCE:
-            printf("<%s instance>", as_instance(val)->class_->name->chars);
+        case OBJ_FUNCTION:
+            print_function_obj(AS_FUNCTION(val));
             break;
-        
-        case OBJ_BOUND_METHOD:
-            print_function_obj(as_bound_method(val)->method->function);
+
+        case OBJ_CLOSURE:
+            print_function_obj(AS_CLOSURE(val)->function);
+            break;
+
+        case OBJ_NATIVE:
+            printf("<native fn>");
             break;
     }
 }

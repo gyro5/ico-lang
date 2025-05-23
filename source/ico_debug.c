@@ -123,7 +123,7 @@ int disass_instruction(CodeChunk* chunk, int offset) {
             return constant_instruction("OP_CONSTANT", chunk, offset);
 
         case OP_NULL:
-            return simple_instruction("OP_NULLL", offset);
+            return simple_instruction("OP_NULL", offset);
 
         case OP_TRUE:
             return simple_instruction("OP_TRUE", offset);

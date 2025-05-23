@@ -6,13 +6,13 @@
 #include "ico_compiler.h"
 #include "ico_scanner.h"
 #include "ico_value.h"
-// #include "ico_object.h"
+#include "ico_object.h"
 #include "ico_memory.h"
 
 #ifdef DEBUG_PRINT_BYTECODE
 #include "ico_debug.h"
 #endif
-/*
+
 // Note that C implicitly creates enum values
 // from lowest to highest, which is what we want.
 typedef enum {
@@ -48,7 +48,7 @@ typedef struct {
 } Parser;
 
 typedef struct {
-    Token var_name;  // The local variable name
+    Token var_name;     // The local variable name
     int depth;          // The scope depth of the local variable
     bool is_captured;   // Whether the variable is captured by a closure
 } LocalVar;
@@ -57,8 +57,6 @@ typedef struct {
 typedef enum {
     TYPE_FUNCTION,
     TYPE_TOP_LEVEL,
-    TYPE_METHOD,
-    TYPE_INIT, // To have special return bytecode for initializers
 } FunctionType;
 
 // Struct to hold compilation information about an upvalue
@@ -78,19 +76,12 @@ typedef struct Compiler {
     Upvalue upvalues[UINT8_COUNT]; // To mirror the array of ObjUpvalue at runtime
 } Compiler;
 
-// Struct to track (nested) class declarations
-typedef struct ClassCompiler {
-    struct ClassCompiler* enclosing;
-    bool has_superclass;
-} ClassCompiler;
-
 // Singleton parser struct
 Parser parser;
 
 Compiler* curr_compiler = NULL;
-ClassCompiler* curr_class_compiler = NULL;
 
-// The currently being-compiled chunk
+// The currently being-compiled chunk //TODO remove when done
 // NOTE: this will change later when we need to compile user-defined chunk
 CodeChunk* compiling_chunk;
 
@@ -108,60 +99,68 @@ CodeChunk* compiling_chunk;
 static void parse_grouping(bool can_assign);
 static void parse_unary(bool can_assign);
 static void parse_binary(bool can_assign);
-static void parse_variable(bool can_assign);
+// static void parse_variable(bool can_assign);
 static void parse_string_literal(bool can_assign);
-static void parse_number_literal(bool can_assign);
+static void parse_int_literal(bool can_assign);
+static void parse_float_literal(bool can_assign);
 static void parse_literal(bool can_assign);
-static void parse_and(bool can_assign);
-static void parse_or(bool can_assign);
-static void parse_call(bool can_assign);
-static void parse_dot(bool can_assign);
-static void parse_this(bool can_assign);
-static void parse_super(bool can_assign);
-static void parse_declaration();
-static void parse_statement();
+// static void parse_and(bool can_assign);
+// static void parse_or(bool can_assign);
+// static void parse_call(bool can_assign);
+// static void parse_dot(bool can_assign);
+// static void parse_declaration();
+// static void parse_statement();
 
 ParseRule parse_rules[] = {
-    [TOKEN_LEFT_PAREN]    = {parse_grouping, parse_call, PREC_CALL},
-    [TOKEN_RIGHT_PAREN]   = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_BRACE]    = {NULL, NULL, PREC_NONE},
-    [TOKEN_RIGHT_BRACE]   = {NULL, NULL, PREC_NONE},
-    [TOKEN_COMMA]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_DOT]           = {NULL, parse_dot, PREC_CALL},
-    [TOKEN_MINUS]         = {parse_unary, parse_binary, PREC_TERM},
-    [TOKEN_PLUS]          = {NULL, parse_binary, PREC_TERM},
-    [TOKEN_SEMICOLON]     = {NULL, NULL, PREC_NONE},
-    [TOKEN_SLASH]         = {NULL, parse_binary, PREC_FACTOR},
-    [TOKEN_STAR]          = {NULL, parse_binary, PREC_FACTOR},
-    [TOKEN_BANG]          = {parse_unary, NULL, PREC_NONE},
-    [TOKEN_BANG_EQUAL]    = {NULL, parse_binary, PREC_EQUALITY},
-    [TOKEN_EQUAL]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_EQUAL_EQUAL]   = {NULL, parse_binary, PREC_EQUALITY},
-    [TOKEN_GREATER]       = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_GREATER_EQUAL] = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_LESS]          = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_LESS_EQUAL]    = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_IDENTIFIER]    = {parse_variable, NULL, PREC_NONE},
-    [TOKEN_STRING]        = {parse_string_literal, NULL, PREC_NONE},
-    [TOKEN_NUMBER]        = {parse_number_literal, NULL, PREC_NONE},
-    [TOKEN_AND]           = {NULL, parse_and, PREC_AND},
-    [TOKEN_CLASS]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_ELSE]          = {NULL, NULL, PREC_NONE},
-    [TOKEN_FALSE]         = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_FOR]           = {NULL, NULL, PREC_NONE},
-    [TOKEN_FUN]           = {NULL, NULL, PREC_NONE},
-    [TOKEN_IF]            = {NULL, NULL, PREC_NONE},
-    [TOKEN_NIL]           = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_OR]            = {NULL, parse_or, PREC_OR},
-    [TOKEN_PRINT]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_RETURN]        = {NULL, NULL, PREC_NONE},
-    [TOKEN_SUPER]         = {parse_super, NULL, PREC_NONE},
-    [TOKEN_THIS]          = {parse_this, NULL, PREC_NONE},
-    [TOKEN_TRUE]          = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_VAR]           = {NULL, NULL, PREC_NONE},
-    [TOKEN_WHILE]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_ERROR]         = {NULL, NULL, PREC_NONE},
-    [TOKEN_EOF]           = {NULL, NULL, PREC_NONE},
+    [TOKEN_VAR]             = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_QUESTION]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_LEFT_PAREN]      = {parse_grouping, NULL, PREC_CALL}, // TODO parse_call
+    [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
+    [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_OR]              = {NULL, NULL, PREC_OR}, // TODO parse_or
+    [TOKEN_AND]             = {NULL, NULL, PREC_AND}, // TODO parse_and
+    [TOKEN_XOR]             = {NULL, NULL, PREC_OR}, // TODO // TODO
+    [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM}, // TODO
+    [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR}, // TODO
+    [TOKEN_PERCENT]         = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_NULL]            = {parse_literal, NULL, PREC_NONE},
+    [TOKEN_EQUAL]           = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY}, // TODO
+    [TOKEN_BANG]            = {parse_unary, NULL, PREC_NONE},
+    [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY}, // TODO
+    [TOKEN_COLON]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_TRUE]            = {parse_literal, NULL, PREC_NONE},
+    [TOKEN_FALSE]           = {parse_literal, NULL, PREC_NONE},
+    [TOKEN_LESS]            = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_RETURN]          = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_READ]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_READ_BOOL]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR}, // TODO
+    [TOKEN_UP_TRIANGLE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_DOWN_TRIANGLE]   = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
+    [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_GREATER]         = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_LEFT_SQUARE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_TABLE]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_IDENTIFIER]      = {NULL, NULL, PREC_NONE}, // TODO parse_variable
+    [TOKEN_INT]             = {parse_int_literal, NULL, PREC_NONE},
+    [TOKEN_FLOAT]           = {parse_float_literal, NULL, PREC_NONE},
+    [TOKEN_STRING]          = {parse_string_literal, NULL, PREC_NONE},
+    [TOKEN_ERROR]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_EOF]             = {NULL, NULL, PREC_NONE}, // TODO
 };
 
 //------------------------------
@@ -171,17 +170,14 @@ ParseRule parse_rules[] = {
 // Report error at the passed token.
 static void error_at(Token* token, const char* msg) {
     // Don't report errors if already in panic mode
-    if (parser.panicking) {
-        return;
-    }
+    if (parser.panicking) return;
 
     parser.panicking = true;
 
     // Print the line number of the token
     fprintf(stderr, "[Line %d] Error", token->line_num);
 
-    // Check for token type (and optionally print "at end"
-    // or the lexeme)
+    // Check for token type (and optionally print "at end" or the lexeme)
     if (token->type == TOKEN_EOF) {
         // End of file
         fprintf(stderr, " at end");
@@ -220,7 +216,7 @@ static void next_token() {
     parser.prev_token = parser.curr_token;
 
     for (;;) {
-        parser.curr_token = scan_token();
+        parser.curr_token = scan_next_token();
 
         // Check for error tokens
         if (parser.curr_token.type == TOKEN_ERROR) {
@@ -243,8 +239,7 @@ static bool check_next_token(TokenType type) {
 static bool match_next_token(TokenType type) {
     if (!check_next_token(type)) return false;
 
-    // Matched --> Consume
-    next_token();
+    next_token(); // Matched --> Consume
     return true;
 }
 
@@ -278,7 +273,8 @@ static CodeChunk* current_chunk() {
     // The purpose of this function is to encapsulate
     // the notion of the "current chunk" inside this
     // function.
-    return &curr_compiler->function->chunk;
+    // return &curr_compiler->function->chunk;
+    return compiling_chunk;
 }
 
 // Add a byte to the currently being-compiled chunk.
@@ -294,14 +290,8 @@ static void emit_two_bytes(uint8_t byte1, uint8_t byte2) {
 
 // Add OP_RETURN to the currently being-compiled chunk.
 static void emit_op_return() {
-    if (curr_compiler->func_type == TYPE_INIT) {
-        // Always return "this" in initializers
-        emit_two_bytes(OP_GET_LOCAL, 0); // "this" always in stack slot 0
-    }
-    else {
-        // Implicit nil return in all other cases
-        emit_byte(OP_NIL);
-    }
+    // Implicit null return
+    emit_byte(OP_NULL);
     emit_byte(OP_RETURN);
 }
 
@@ -337,6 +327,9 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
     compiler->scope_depth = 0;
     compiler->function = new_function_obj(); // Immediately reassign bc garbage collection stuff
     curr_compiler = compiler;
+
+    // TODO remove
+    compiling_chunk = malloc(sizeof(Compiler));
 
     // parse_func_decl() parses the function name's token, then compile_function()
     //  will call this function to initialize a new compiler struct.
@@ -410,7 +403,9 @@ static void parse_expr_with_precedence(Precedence precedence) {
         return;
     }
 
-    // Check if current precedence allow variable assignment
+    // Check if current INFIX precedence allow variable assignment
+    // (The only case when this is true is when we have assignment
+    // chain, like a = b = 5).
     bool can_assign = precedence <= PREC_ASSIGNMENT;
 
     // The current token DOES have a prefix parse function
@@ -430,11 +425,11 @@ static void parse_expr_with_precedence(Precedence precedence) {
     }
 
 
-    can_assign is always true at top-level due to parse_expression()
-    calling this function with PREC_ASSIGNMENT. If can_assign is false,
-    the "=" will not be consumed, so when control returns to the
-    top level call of this function, we will have can_assign=true
-    and the remaining "=", which will be catched as follows.
+    // can_assign is always true at top-level due to parse_expression()
+    // calling this function with PREC_ASSIGNMENT. If can_assign is false,
+    // the "=" will not be consumed, so when control returns to the
+    // top level call of this function, we will have can_assign=true
+    // and the remaining "=", which will be catched as follows.
 
     if (can_assign && match_next_token(TOKEN_EQUAL)) {
         error_prev_token("Invalid assignment target.");
@@ -447,18 +442,24 @@ static void parse_expression() {
     parse_expr_with_precedence(PREC_ASSIGNMENT);
 }
 
-// Parse and compile a number literal.
-static void parse_number_literal(bool can_assign) {
-    double val = strtod(parser.prev_token.start, NULL);
-    emit_constant(number_val(val));
+// Parse and compile an int literal.
+static void parse_int_literal(bool can_assign) {
+    long i = strtol(parser.prev_token.start, NULL, 10);
+    emit_constant(INT_VAL(i));
+}
+
+// Parse and compile a float literal
+static void parse_float_literal(bool can_assign) {
+    double f = strtod(parser.prev_token.start, NULL);
+    emit_constant(FLOAT_VAL(f));
 }
 
 // Parse and compile a boolean or nil literal.
 static void parse_literal(bool can_assign) {
     switch (parser.prev_token.type) {
         case TOKEN_FALSE: emit_byte(OP_FALSE); break;
-        case TOKEN_NIL: emit_byte(OP_NIL); break;
-        case TOKEN_TRUE: emit_byte(OP_TRUE); break;
+        case TOKEN_NULL:  emit_byte(OP_NULL); break;
+        case TOKEN_TRUE:  emit_byte(OP_TRUE); break;
 
         default: return; // Unreachable
     }
@@ -484,16 +485,10 @@ static void parse_unary(bool can_assign) {
 
     // Emit the corresponding opcode
     switch (operator_type) {
-        case TOKEN_MINUS:
-            emit_byte(OP_NEGATE);
-            break;
+        case TOKEN_MINUS: emit_byte(OP_NEGATE); break;
+        case TOKEN_BANG:  emit_byte(OP_NOT); break;
 
-        case TOKEN_BANG:
-            emit_byte(OP_NOT);
-            break;
-
-        default:  // Unreachable
-            return;
+        default:          return;// Unreachable
     }
 }
 
@@ -539,9 +534,9 @@ static void parse_string_literal(bool can_assign) {
         parser.prev_token.start + 1,
         parser.prev_token.length - 2
     );
-    emit_constant(obj_val(obj_str));
+    emit_constant(OBJ_VAL(obj_str));
 }
-
+/*
 // Synchronize the parser to a new statement when there
 // is an error and the parser is in panic mode.
 static void synchronize() {
@@ -786,7 +781,7 @@ static void parse_var_decl() {
         parse_expression();
     }
     else {
-        emit_byte(OP_NIL);
+        emit_byte(OP_NULL);
     }
 
     consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after variable declaration;");
@@ -871,8 +866,8 @@ static void patch_jump(int offset) {
 
     // Convert the jump distance to an unsigned short
     // byte-by-byte and put it in the chunk
-    current_chunk()->code_chunk[offset] = (dist >> 8) & 0xff;
-    current_chunk()->code_chunk[offset + 1] = dist & 0xff;
+    current_chunk()->chunk[offset] = (dist >> 8) & 0xff;
+    current_chunk()->chunk[offset + 1] = dist & 0xff;
 }
 
 // Parse and compile an if statement.
@@ -1333,39 +1328,28 @@ static void parse_declaration() {
 
 CodeChunk* compile(const char *source_code) {
     // Initialize the scanner, which will be used by the parser
-    // init_scanner(source_code);
+    init_scanner(source_code);
 
-    // // Initialize the parser and compiler
-    // Compiler compiler;
-    // init_compiler(&compiler, TYPE_TOP_LEVEL); // TODO one more line to remove
-    // parser.panicking = false;
-    // parser.had_error = false;
+    // Initialize the parser and compiler
+    Compiler compiler;
+    init_compiler(&compiler, TYPE_TOP_LEVEL); // TODO one more line to remove
+    parser.panicking = false;
+    parser.had_error = false;
 
-    // // Make the parser get the first token
-    // next_token();
+    // Make the parser get the first token
+    next_token();
 
-    // // Parsing declaration-level statements until EOF
-    // while (!match_next_token(TOKEN_EOF)) {
-    //     parse_declaration();
-    // }
+    // Parsing declaration-level statements until EOF
+    while (!match_next_token(TOKEN_EOF)) {
+        // parse_declaration();
+        parse_expression();
+    }
 
-    // // End of the compiling process
-    // ObjFunction* result_func = end_compiler();
+    // End of the compiling process
+    ObjFunction* result_func = end_compiler();
     // return parser.had_error ? NULL : result_func;
 
-    CodeChunk* c = malloc(sizeof(CodeChunk));
-    init_chunk(c);
-    append_chunk(c, OP_CONSTANT, 1);
-    uint8_t idx = add_constant(c, INT_VAL(123));
-    append_chunk(c, idx, 1);
-    append_chunk(c, OP_NEGATE, 1);
-
-    append_chunk(c, OP_CONSTANT, 2);
-    idx = add_constant(c, FLOAT_VAL(123.321));
-    append_chunk(c, idx, 2);
-    append_chunk(c, OP_NEGATE, 2);
-
-    return c;
+    return current_chunk();
 }
 
 // void mark_compiler_roots() {
