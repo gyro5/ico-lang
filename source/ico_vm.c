@@ -442,26 +442,26 @@ static InterpretResult vm_run() {
                 break;
 
             case OP_POP: pop(); break;
-/*
+
             case OP_DEFINE_GLOBAL: {
                 // Insert the global variable and its initialized value
                 // into the globals hash table.
-                ObjString* var_name = read_string();
+                IcoValue var_name = READ_CONSTANT();
                 table_set(&vm.globals, var_name, peek(0));
 
                 // Need to pop AFTER the value is added to the globals table
-                // due to garbage collecting issue (which I dont understand yet)
+                // so that GC doesn't collect it.
                 pop();
                 break;
             }
 
             case OP_GET_GLOBAL: {
-                ObjString* var_name = read_string();
-                Value value;
+                IcoValue var_name = READ_CONSTANT();
+                IcoValue value;
 
                 // Try to access the variable with this name
                 if (!table_get(&vm.globals, var_name, &value)) {
-                    runtime_error("Undefined variable '%s'.", var_name->chars);
+                    runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -471,13 +471,13 @@ static InterpretResult vm_run() {
             }
 
             case OP_SET_GLOBAL: {
-                ObjString* var_name = read_string();
+                IcoValue var_name = READ_CONSTANT();
 
                 // Try to set the variable value
                 if (table_set(&vm.globals, var_name, peek((0)))) {
                     // If variable not already declared
                     table_delete(&vm.globals, var_name);
-                    runtime_error("Undefined variable '%s'.", var_name->chars);
+                    runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -486,18 +486,18 @@ static InterpretResult vm_run() {
 /*
             case OP_GET_LOCAL: {
                 // Get the index of the local variable on the VM stack
-                uint8_t stack_index = read_next_byte();
+                uint8_t stack_index = READ_NEXT_BYTE();
                 push(curr_frame->base_ptr[stack_index]);
                 break;
             }
 
             case OP_SET_LOCAL: {
-                uint8_t stack_index = read_next_byte();
+                uint8_t stack_index = READ_NEXT_BYTE();
                 curr_frame->base_ptr[stack_index] = peek(0);
                 // Don't pop, only peek because assignment is an expr
                 break;
             }
-
+/*
             case OP_JUMP_IF_FALSE: {
                 uint16_t jump_dist = read_short();
                 if (is_falsey(peek(0))) {
@@ -579,127 +579,6 @@ static InterpretResult vm_run() {
                 pop();
                 break;
             }
-
-            case OP_CLASS: {
-                push(obj_val(new_class_obj(read_string())));
-                break;
-            }
-
-            case OP_GET_PROPERTY: {
-                // Check for instance
-                if (!is_instance(peek(0))) {
-                    runtime_error("Only instances have properties.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                // Retrieve the instance
-                ObjInstance* instance = as_instance(peek(0));
-                ObjString* property_name = read_string();
-
-                Value val;
-
-                // Try to look up the property as a field first
-                if (table_get(&instance->fields, property_name, &val)) {
-                    pop(); // Pop the instance
-                    push(val);
-                    break;
-                }
-
-                // Try to look up the property as a method second
-                if (!bind_method(instance->class_, property_name)) {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                break;
-            }
-
-            case OP_SET_PROPERTY: {
-                // Check for ObjInstance
-                if (!is_instance(peek(1))) {
-                    runtime_error("Only instances can set fields.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                // Retrieve the instance
-                ObjInstance* instance = as_instance(peek(1));
-
-                // Set the field (regardless of whether it has existed before)
-                table_set(&instance->fields, read_string(), peek(0));
-
-                // Pop the instance, and push back
-                // the new field value (bc set is an expr)
-                Value val = pop();
-                pop();
-                push(val);
-                break;
-            }
-
-            case OP_METHOD: {
-                define_method(read_string());
-                break;
-            }
-
-            case OP_INVOKE: {
-                ObjString* method_name = read_string();
-                int arg_count = read_next_byte();
-
-                // Try to invoke the method
-                if (!invoke_helper(method_name, arg_count)) {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                // Get the new call frame from the success invocation
-                curr_frame = &vm.frames[vm.frame_count - 1];
-                break;
-            }
-
-            case OP_INHERIT: {
-                Value superclass = peek(1);
-                if (!is_class(superclass)) {
-                    runtime_error("Superclass must be a class.");
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                ObjClass* subclass = as_class(peek(0));
-
-                // Copy all methods from the superclass to the subclass
-                table_add_all(&as_class(superclass)->methods, &subclass->methods);
-
-                pop(); // Pop the subclass
-
-                // NOTE: The superclass is not popped so that it can stay at
-                // the correct stack slot for the local variable "super".
-                break;
-            }
-
-            case OP_GET_SUPER: {
-                ObjString* method_name = read_string();
-                ObjClass* superclass = as_class(pop());
-                // The superclass won't be GC-ed incorrectly because it is
-                // already stored in the scope of the class declaration.
-
-                // super.sth always resolve to a method, so we don't have to
-                // check for shadowing fields (because fields are not inherited).
-                if (!bind_method(superclass, method_name)) {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                break;
-            }
-
-            case OP_SUPER_INVOKE: {
-                ObjString* method_name = read_string();
-                int arg_count = read_next_byte();
-                ObjClass* superclass = as_class(pop());
-
-                if (!invoke_from_class(superclass, method_name, arg_count)) {
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
-                // Reset the frame cache as successful invocation will add a new frame
-                curr_frame = &vm.frames[vm.frame_count - 1];
-                break;
-            }
                 */
 
             default: { // For dev only, will be unreachable
@@ -714,7 +593,8 @@ static InterpretResult vm_run() {
 #undef READ_CONSTANT
 #undef READ_STRING
 #undef READ_SHORT
-#undef binary_op
+#undef BINARY_OP
+#undef BINARY_OP_RESULT
 }
 
 //------------------------------

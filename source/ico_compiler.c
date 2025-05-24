@@ -99,7 +99,7 @@ CodeChunk* compiling_chunk;
 static void parse_grouping(bool can_assign);
 static void parse_unary(bool can_assign);
 static void parse_binary(bool can_assign);
-// static void parse_variable(bool can_assign);
+static void parse_variable(bool can_assign);
 static void parse_string_literal(bool can_assign);
 static void parse_int_literal(bool can_assign);
 static void parse_float_literal(bool can_assign);
@@ -112,7 +112,7 @@ static void parse_declaration();
 static void parse_statement();
 
 ParseRule parse_rules[] = {
-    [TOKEN_VAR]             = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_VAR]             = {NULL, NULL, PREC_NONE},
     [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_QUESTION]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE}, // TODO
@@ -130,7 +130,7 @@ ParseRule parse_rules[] = {
     [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_NULL]            = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_EQUAL]           = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_EQUAL]           = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_BANG]            = {parse_unary, NULL, PREC_NONE},
     [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
@@ -155,7 +155,7 @@ ParseRule parse_rules[] = {
     [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_LEFT_SQUARE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_TABLE]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_IDENTIFIER]      = {NULL, NULL, PREC_NONE}, // TODO parse_variable
+    [TOKEN_IDENTIFIER]      = {parse_variable, NULL, PREC_NONE},
     [TOKEN_INT]             = {parse_int_literal, NULL, PREC_NONE},
     [TOKEN_FLOAT]           = {parse_float_literal, NULL, PREC_NONE},
     [TOKEN_STRING]          = {parse_string_literal, NULL, PREC_NONE},
@@ -349,7 +349,7 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
         local_vars[0].var_name.length = 0;
     }
     else {
-        local_vars[0].var_name.start = "this";
+        local_vars[0].var_name.start = "this"; // TODO fix
         local_vars[0].var_name.length = 4;
     }
 
@@ -753,14 +753,13 @@ static void named_variable(Token name, bool can_assign) {
         set_op = OP_SET_GLOBAL;
     }
 
-    // Variable access or assignment?
-    if (can_assign && match_next_token(TOKEN_EQUAL)) { // Assignment
+    // Set or Get?
+    if (can_assign && match_next_token(TOKEN_EQUAL)) { // Set
         // Compile the right-hand-side expression
         parse_expression();
-
         emit_two_bytes(set_op, (uint8_t)arg);
     }
-    else { // Access
+    else { // Get
         emit_two_bytes(get_op, (uint8_t)arg);
     }
 }
@@ -783,8 +782,7 @@ static void parse_var_decl() {
     }
 
     consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after variable declaration;");
-
-    define_variable(arg);
+    define_variable(arg); // OP_DEFINE_GLOBAL or mark initialized local
 }
 
 // Parse and compile a print statement.
