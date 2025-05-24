@@ -11,12 +11,12 @@ void init_value_array(ValueArray* val_arr) {
     val_arr->size = 0;
 }
 
-void append_value_array(ValueArray* val_arr, Value val) {
+void append_value_array(ValueArray* val_arr, IcoValue val) {
     // Increase array capacity if needed
     if (val_arr->size + 1 > val_arr->capacity) {
         int old_cap = val_arr->capacity;
         val_arr->capacity = GROW_CAPACITY(old_cap);
-        val_arr->values = GROW_ARRAY(Value, val_arr->values, old_cap, val_arr->capacity);
+        val_arr->values = GROW_ARRAY(IcoValue, val_arr->values, old_cap, val_arr->capacity);
     }
 
     // Append the new value to the end of the array
@@ -25,11 +25,11 @@ void append_value_array(ValueArray* val_arr, Value val) {
 }
 
 void free_value_array(ValueArray* val_arr) {
-    FREE_ARRAY(Value, val_arr->values, val_arr->capacity);
+    FREE_ARRAY(IcoValue, val_arr->values, val_arr->capacity);
     init_value_array(val_arr);
 }
 
-void print_value(Value val) {
+void print_value(IcoValue val) {
     switch (val.type) {
         case VAL_BOOL:
             printf(AS_BOOL(val) ? ":)" : ":(");
@@ -59,7 +59,7 @@ void print_value(Value val) {
     }
 }
 
-bool values_equal(Value a, Value b) {
+bool values_equal(IcoValue a, IcoValue b) {
     // Check for same type first
     if (a.type != b.type) {
         return false;

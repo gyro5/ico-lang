@@ -31,16 +31,21 @@ typedef struct {
         double num_float;
         Obj* obj;
         char* error;
+        uint32_t ui32[2];
     } as;
-} Value;
+} IcoValue;
+
+// By hashing the string ":)" and ":("
+#define TRUE_HASH (uint32_t)2231767820
+#define FALSE_HASH (uint32_t)2248545439
 
 // Macros to convert native C values to Ico Value
-#define BOOL_VAL(b)     ((Value){VAL_BOOL, {.boolean = b}})
-#define NULL_VAL        ((Value){VAL_NULL, {.num_int = 0}})
-#define INT_VAL(i)      ((Value){VAL_INT, {.num_int = i}})
-#define FLOAT_VAL(f)    ((Value){VAL_FLOAT, {.num_float = f}})
-#define OBJ_VAL(o)      ((Value){VAL_OBJ, {.obj = (Obj*)o}})
-#define ERROR_VAL(s)    ((Value){VAL_ERROR, {.error = s}})
+#define BOOL_VAL(b)     ((IcoValue){VAL_BOOL, {.boolean = b}})
+#define NULL_VAL        ((IcoValue){VAL_NULL, {.num_int = 0}})
+#define INT_VAL(i)      ((IcoValue){VAL_INT, {.num_int = i}})
+#define FLOAT_VAL(f)    ((IcoValue){VAL_FLOAT, {.num_float = f}})
+#define OBJ_VAL(o)      ((IcoValue){VAL_OBJ, {.obj = (Obj*)o}})
+#define ERROR_VAL(s)    ((IcoValue){VAL_ERROR, {.error = s}})
 
 // Macros to convert an Ico Value to a C-native value
 #define AS_BOOL(val)    ((val).as.boolean)
@@ -61,23 +66,23 @@ typedef struct {
 typedef struct {
     int capacity;
     int size;
-    Value* values;
+    IcoValue* values;
 } ValueArray;
 
 // Initialize a ValueArray
 void init_value_array(ValueArray* val_arr);
 
 // Append a value to the end of a ValueArray
-void append_value_array(ValueArray* val_arr, Value val);
+void append_value_array(ValueArray* val_arr, IcoValue val);
 
 // Free the memory blocks of a ValueArray
 void free_value_array(ValueArray* val_arr);
 
 // Print a Value
-void print_value(Value val);
+void print_value(IcoValue val);
 
 // Compare two values and return true if they are equal
-bool values_equal(Value a, Value b);
+bool values_equal(IcoValue a, IcoValue b);
 
 #endif // !ICO_VALUE_H
 

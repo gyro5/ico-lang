@@ -41,7 +41,7 @@ void free_chunk(CodeChunk* chunk) {
     init_chunk(chunk);
 }
 
-int add_constant(CodeChunk* chunk, Value val) {
+int add_constant(CodeChunk* chunk, IcoValue val) {
     // push(val); // To avoid Obj value being sweeped by the GC
     append_value_array(&chunk->const_pool, val);
     // pop();

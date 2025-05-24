@@ -126,31 +126,31 @@ ParseRule parse_rules[] = {
     [TOKEN_OR]              = {NULL, NULL, PREC_OR}, // TODO parse_or
     [TOKEN_AND]             = {NULL, NULL, PREC_AND}, // TODO parse_and
     [TOKEN_XOR]             = {NULL, NULL, PREC_OR}, // TODO // TODO
-    [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM}, // TODO
-    [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR}, // TODO
-    [TOKEN_PERCENT]         = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM},
+    [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR},
+    [TOKEN_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_NULL]            = {parse_literal, NULL, PREC_NONE},
     [TOKEN_EQUAL]           = {NULL, NULL, PREC_NONE}, // TODO
-    [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY}, // TODO
+    [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_BANG]            = {parse_unary, NULL, PREC_NONE},
-    [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY}, // TODO
+    [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_COLON]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_TRUE]            = {parse_literal, NULL, PREC_NONE},
     [TOKEN_FALSE]           = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_LESS]            = {NULL, parse_binary, PREC_COMPARISON}, // TODO
-    [TOKEN_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_LESS]            = {NULL, parse_binary, PREC_COMPARISON},
+    [TOKEN_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_RETURN]          = {NULL, NULL, PREC_NONE}, // TODO
     [TOKEN_READ]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_READ_BOOL]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR}, // TODO
+    [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_UP_TRIANGLE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_DOWN_TRIANGLE]   = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
     [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_GREATER]         = {NULL, parse_binary, PREC_COMPARISON}, // TODO
-    [TOKEN_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON}, // TODO
+    [TOKEN_GREATER]         = {NULL, parse_binary, PREC_COMPARISON},
+    [TOKEN_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_LEFT_SQUARE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
@@ -297,7 +297,7 @@ static void emit_op_return() {
 
 // Add a constant to the contant pool of the current chunk
 // and return the corresponding constant index.
-static uint8_t add_constant_to_pool(Value val) {
+static uint8_t add_constant_to_pool(IcoValue val) {
     // Add the constant to the pool and get the constant index
     int constant_idx = add_constant(current_chunk(), val);
 
@@ -312,7 +312,7 @@ static uint8_t add_constant_to_pool(Value val) {
 
 // Add OP_CONSTANT to the currently being-compiled chunk
 // and add the value to the the constant pool of the chunk.
-static void emit_constant(Value val) {
+static void emit_constant(IcoValue val) {
     // Add OP_CONSTANT and the constant index to the chunk
     emit_two_bytes(OP_CONSTANT, add_constant_to_pool(val));
 }
@@ -512,6 +512,7 @@ static void parse_binary(bool can_assign) {
         case TOKEN_MINUS:   emit_byte(OP_SUBTRACT); break;
         case TOKEN_STAR:    emit_byte(OP_MULTIPLY); break;
         case TOKEN_SLASH:   emit_byte(OP_DIVIDE); break;
+        case TOKEN_PERCENT: emit_byte(OP_MODULO); break;
 
         // Comparison operations
         case TOKEN_BANG_EQUAL:    emit_two_bytes(OP_EQUAL, OP_NOT); break;

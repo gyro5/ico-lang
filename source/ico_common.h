@@ -5,6 +5,8 @@
 #include <stddef.h>  // For "size_t" and "NULL"
 #include <stdint.h>  // For sized ints
 
+#define C23_ENUM_FIXED_TYPE
+
 // ANSI colors
 #define COLOR_RED     "\x1b[31m"
 #define COLOR_GREEN   "\x1b[32m"

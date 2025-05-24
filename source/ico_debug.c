@@ -119,6 +119,9 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_DIVIDE:
             return simple_instruction("OP_DIVIDE", offset);
 
+        case OP_MODULO:
+            return simple_instruction("OP_MODULO", offset);
+
         case OP_CONSTANT:
             return constant_instruction("OP_CONSTANT", chunk, offset);
 

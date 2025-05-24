@@ -7,6 +7,15 @@
 // #include "ico_table.h"
 
 // Types of heap-allocated value
+#ifdef C23_ENUM_FIXED_TYPE
+typedef enum : char {
+    OBJ_STRING,
+    OBJ_UPVALUE,
+    OBJ_FUNCTION,
+    OBJ_NATIVE,
+    OBJ_CLOSURE,
+} ObjType;
+#else
 typedef enum {
     OBJ_STRING,
     OBJ_UPVALUE,
@@ -14,11 +23,13 @@ typedef enum {
     OBJ_NATIVE,
     OBJ_CLOSURE,
 } ObjType;
+#endif
 
 // The "struct Obj" is declared in clox_value.h and defined here.
 struct Obj {
     ObjType type;       // Type tag for the obj
     bool is_marked;     // For GC marking phase
+    uint32_t hash;      // For hash table
     struct Obj* next;   // For GC sweeping phase
 };
 
@@ -28,14 +39,13 @@ struct ObjString {
     Obj obj;        // Common obj tag
     int length;     // Length of the string
     char* chars;    // Content of the string
-    uint32_t hash;  // Hash code of the string
 };
 
 // Runtime representation for upvalues
 typedef struct ObjUpValue {
     Obj obj;
-    Value* location;
-    Value closed;               // To hold the value when closed
+    IcoValue* location;
+    IcoValue closed;               // To hold the value when closed
     struct ObjUpValue* next;    // For intrusive linked list of open upvalues
 } ObjUpValue;
 
@@ -59,20 +69,13 @@ typedef struct {
 } ObjClosure;
 
 // Function pointer type for Lox's native functions
-typedef Value (*NativeFn)(int arg_count, Value* args);
+typedef IcoValue (*NativeFn)(int arg_count, IcoValue* args);
 
 // Obj subtype for Lox's native function
 typedef struct {
     Obj obj;
     NativeFn function;
 } ObjNative;
-
-// Obj subtype for bound method
-typedef struct {
-    Obj obj;
-    Value receiver;
-    ObjClosure* method;
-} ObjBoundMethod;
 
 // Get the obj type tag from a Value
 #define OBJ_TYPE(val) (AS_OBJ(val)->type)
@@ -84,7 +87,7 @@ typedef struct {
 #define IS_NATIVE(val)          is_obj_type(val, OBJ_NATIVE)
 
 // Inline function to check an Obj's type.
-static inline bool is_obj_type(Value val, ObjType target_type) {
+static inline bool is_obj_type(IcoValue val, ObjType target_type) {
     // "val" is used twice, so an inline function is used instead
     // of a macro so that "val" is not executed/evaluated twice.
     return IS_OBJ(val) && AS_OBJ(val)->type == target_type;
@@ -106,7 +109,7 @@ ObjString* copy_and_create_str_obj(const char* source_str, int length);
 ObjString* take_own_and_create_str_obj(char* chars, int length);
 
 // Create a new ObjUpvalue that points to the passed Value slot.
-ObjUpValue* new_upvalue_obj(Value* slot);
+ObjUpValue* new_upvalue_obj(IcoValue* slot);
 
 // Create a new ObjFunction and return its address
 ObjFunction* new_function_obj();
@@ -118,6 +121,6 @@ ObjClosure* new_closure_obj(ObjFunction* function);
 ObjNative* new_native_func_obj(NativeFn c_func);
 
 // Print an Obj (which is a Value)
-void print_object(Value val);
+void print_object(IcoValue val);
 
 #endif //!ICO_OBJECT_H

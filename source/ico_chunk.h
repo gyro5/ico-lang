@@ -20,6 +20,7 @@ typedef enum {
     OP_SUBTRACT,    // [arithmetic -]
     OP_MULTIPLY,    // [arithmetic *]
     OP_DIVIDE,      // [arithmetic /]
+    OP_MODULO,      // [integer %]
 
     // Logical and comparison instructions
     OP_NOT,         // [logical not]
@@ -80,6 +81,6 @@ void free_chunk(CodeChunk* chunk);
 
 // Add a constant to the constant pool of the chunk
 // and return its index in the pool.
-int add_constant(CodeChunk* chunk, Value val);
+int add_constant(CodeChunk* chunk, IcoValue val);
 
 #endif // !ICO_CHUNK_H

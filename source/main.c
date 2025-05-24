@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "ico_common.h"
+#include "ico_object.h"
 #include "ico_vm.h"
 #include "ico_scanner.h"
 #include "ico_compiler.h"
@@ -127,9 +128,11 @@ static void run_script(char* path) {
 //------------------------------
 
 int main(int argc, char *argv[]) {
-    // init_vm();
+    init_vm();
 
-
+    // Dev:
+    printf("Size of IcoValue: %zu\n", sizeof(IcoValue));
+    printf("Size of struct Obj: %zu\n", sizeof(Obj));
 
     // Script mode or REPL mode
     if (argc == 1) {
@@ -143,7 +146,7 @@ int main(int argc, char *argv[]) {
         exit(64);
     }
 
-    // free_vm();
+    free_vm();
     return 0;
 }
 

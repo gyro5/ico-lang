@@ -1,7 +1,7 @@
 # Compiler options
 CC := gcc
-# CFLAGS := -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -std=c99
-CFLAGS := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -std=c99
+# CFLAGS := -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -std=c23
+CFLAGS := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function -std=c23
 
 # Files
 SRC_DIR := source

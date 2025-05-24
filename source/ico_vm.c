@@ -27,7 +27,7 @@ static void reset_stack() {
 }
 
 // Peek the Value at distance away from the stack top
-static Value peek(int distance) {
+static IcoValue peek(int distance) {
     // stack_top points to the next slot to be used,
     // so -1 is the Value at the top of the stack.
     //
@@ -38,7 +38,7 @@ static Value peek(int distance) {
 
 // Return the falsiness of a clox Value
 // (False only when nil or boolean false)
-static bool is_falsey(Value val) {
+static bool is_falsey(IcoValue val) {
     return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
@@ -366,7 +366,7 @@ static InterpretResult vm_run() {
 #ifdef DEBUG_TRACE_EXECUTION
         // Print the content of the VM's stack
         printf("          stack: ");
-        for (Value* slot = vm.stack; slot < vm.stack_top; slot++) {
+        for (IcoValue* slot = vm.stack; slot < vm.stack_top; slot++) {
             printf("[ ");
             print_value(*slot);
             printf(" ]");
@@ -393,7 +393,7 @@ static InterpretResult vm_run() {
                 // Quick note: The {} is required because before C23,
                 // declaring a variable right after a label (which is
                 // "case OP_CONSTANT:" in this case) is not allowed.
-                Value constant = READ_CONSTANT();
+                IcoValue constant = READ_CONSTANT();
                 push(constant);
                 break;
             }
@@ -415,7 +415,7 @@ static InterpretResult vm_run() {
 
             case OP_NEGATE: {
                 // Check for number operand
-                Value val = peek(0);
+                IcoValue val = peek(0);
 
                 if (IS_INT(val)) {
                     push(INT_VAL(-AS_INT(pop())));
@@ -775,7 +775,7 @@ static InterpretResult vm_run() {
 //      NATIVE FUNCTIONS
 //------------------------------
 
-static Value clock_native(int arg_count, Value* args) {
+static IcoValue clock_native(int arg_count, IcoValue* args) {
     return INT_VAL(clock() / CLOCKS_PER_SEC);
 }
 
@@ -850,12 +850,12 @@ Instead, the compiler takes care to use precise numbers of
 pops and pushes, allowing stack operation to be fast.
 */
 
-void push(Value val) {
+void push(IcoValue val) {
     *vm.stack_top = val;
     vm.stack_top++;
 }
 
-Value pop() {
+IcoValue pop() {
     vm.stack_top--;
     return *vm.stack_top;
 }
