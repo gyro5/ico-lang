@@ -108,8 +108,8 @@ static void parse_literal(bool can_assign);
 // static void parse_or(bool can_assign);
 // static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
-// static void parse_declaration();
-// static void parse_statement();
+static void parse_declaration();
+static void parse_statement();
 
 ParseRule parse_rules[] = {
     [TOKEN_VAR]             = {NULL, NULL, PREC_NONE}, // TODO // TODO
@@ -537,7 +537,7 @@ static void parse_string_literal(bool can_assign) {
     );
     emit_constant(OBJ_VAL(obj_str));
 }
-/*
+
 // Synchronize the parser to a new statement when there
 // is an error and the parser is in panic mode.
 static void synchronize() {
@@ -551,14 +551,12 @@ static void synchronize() {
 
         // Also detect new statement with some tokens
         switch (parser.curr_token.type) {
-            case TOKEN_CLASS:
-            case TOKEN_FUN:
-            case TOKEN_VAR:
-            case TOKEN_FOR:
-            case TOKEN_IF:
-            case TOKEN_WHILE:
-            case TOKEN_PRINT:
+            case TOKEN_LOOP:
+            case TOKEN_BACK_SLASH:
+            case TOKEN_2_GREATER:
+            case TOKEN_3_GREATER:
             case TOKEN_RETURN:
+            case TOKEN_VAR:
                 return;
 
             default:
@@ -573,7 +571,7 @@ static void synchronize() {
 // lexeme in the source code, then return the constant index.
 static uint8_t identifier_constant_index(Token* token) {
     return add_constant_to_pool(
-        obj_val(copy_and_create_str_obj(token->start, token->length))
+        OBJ_VAL(copy_and_create_str_obj(token->start, token->length))
     );
 }
 
@@ -643,8 +641,7 @@ static uint8_t parse_var_name(const char* error_msg) {
     declare_variable();
     if (curr_compiler->scope_depth > 0) return 0;
 
-    // Return the constant index of the var name if
-    // this is a global variable.
+    // Return the constant index of the var name if this is a global variable.
     return identifier_constant_index(&parser.prev_token);
 }
 
@@ -791,13 +788,13 @@ static void parse_var_decl() {
 }
 
 // Parse and compile a print statement.
-static void parse_print_stmt() {
-    // Assume the "print" keyword has been consumed
+static void parse_print_stmt(bool is_println) {
+    // Assume the print token has been consumed
     parse_expression();
 
     // ";" at the end
     consume_mandatory(TOKEN_SEMICOLON, "Expect ';' at the end of statement.");
-    emit_byte(OP_PRINT);
+    emit_byte(is_println ? OP_PRINTLN : OP_PRINT);
 }
 
 // Parse and compile a block statement.
@@ -845,6 +842,7 @@ static void parse_expression_stmt() {
     emit_byte(OP_POP);
 }
 
+/*
 // Emit a jump instruction and 2 placeholder operand bytes,
 // then return the chunk offset right after the jump opcode.
 static int emit_jump(uint8_t opcode) {
@@ -956,62 +954,6 @@ static void parse_while_stmt() {
     emit_byte(OP_POP); // pop the loop condition
 }
 
-// Parse and compile a for loop.
-static void parse_for_stmt() {
-    begin_scope(); // To scope the 3 clauses of 'for'.
-    consume_mandatory(TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
-
-    // Initializer clause
-    if (match_next_token(TOKEN_SEMICOLON)) {
-        // No initializer
-    } // The following 2 cases will automatically consume the ';'.
-    else if (match_next_token(TOKEN_VAR)) {
-        parse_var_decl();
-    }
-    else {
-        parse_expression_stmt();
-    }
-
-    // Loop condition
-    int loop_start = current_chunk()->size;
-    int exit_jump_offset = -1;
-    if (!match_next_token(TOKEN_SEMICOLON)) {
-        parse_expression();
-        consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after loop condition.");
-
-        // Jump out of the loop if the condition is false.
-        exit_jump_offset = emit_jump(OP_JUMP_IF_FALSE);
-        emit_byte(OP_POP); // pop the condition before doing the loop body
-    }
-
-    // Increment clause
-    if (!match_next_token(TOKEN_RIGHT_PAREN)) {
-        // Jump through the increment first
-        int body_jump_offset = emit_jump(OP_JUMP);
-        int increment_start = current_chunk()->size;
-
-        // Parse the increment clause
-        parse_expression();
-        emit_byte(OP_POP);
-        consume_mandatory(TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
-
-        emit_loop(loop_start); // go to the next iteration
-        loop_start = increment_start; // change so that after body, jump to increment
-        patch_jump(body_jump_offset); // after evaluating loop condition, skip increment clause
-    }
-
-    // Loop body
-    parse_statement();
-    emit_loop(loop_start); // jump to either next iteration or increment clause
-
-    // Clean up
-    if (exit_jump_offset != -1) {
-        patch_jump(exit_jump_offset);
-        emit_byte(OP_POP); // pop the condition after exitting the loop
-    }
-    end_scope();
-}
-
 // Parse and compile a return statement
 static void parse_return_stmt() {
     // Can't return from top-level code
@@ -1034,26 +976,24 @@ static void parse_return_stmt() {
         emit_byte(OP_RETURN);
     }
 }
-
+*/
 // Parse and compile a statement-level statement.
-// Grammar: statement -> exprStmt | forStmt | ifStmt
-// | printStmt | returnStmt | whileStmt | block.
 static void parse_statement() {
-    if (match_next_token(TOKEN_PRINT)) {
-        parse_print_stmt();
+    if (match_next_token(TOKEN_2_GREATER)) {
+        parse_print_stmt(false);
     }
-    else if (match_next_token(TOKEN_IF)) {
-        parse_if_stmt();
+    else if (match_next_token(TOKEN_3_GREATER)) {
+        parse_print_stmt(true);
     }
-    else if (match_next_token(TOKEN_WHILE)) {
-        parse_while_stmt();
-    }
-    else if (match_next_token(TOKEN_FOR)) {
-        parse_for_stmt();
-    }
-    else if (match_next_token(TOKEN_RETURN)) {
-        parse_return_stmt();
-    }
+    // else if (match_next_token(TOKEN_IF)) {
+    //     parse_if_stmt();
+    // }
+    // else if (match_next_token(TOKEN_WHILE)) {
+    //     parse_while_stmt();
+    // }
+    // else if (match_next_token(TOKEN_RETURN)) {
+    //     parse_return_stmt();
+    // }
     else if (match_next_token(TOKEN_LEFT_BRACE)) {
         begin_scope();
         parse_block();
@@ -1063,7 +1003,7 @@ static void parse_statement() {
         parse_expression_stmt();
     }
 }
-
+/*
 // Compile a function into a bytecode chunk and store
 // the resulting ObjFunction in the constant pool.
 // (Because function definitions are literals.)
@@ -1165,155 +1105,13 @@ static void parse_dot(bool can_assign) {
         emit_two_bytes(OP_GET_PROPERTY, name_const_idx);
     }
 }
-
-// Parse and compile a "this" keyword
-static void parse_this(bool can_assign) {
-    // Check for invalid uses
-    if (curr_class_compiler == NULL) {
-        error_prev_token("Can't use 'this' outside of a class.");
-        return;
-    }
-
-    // "this" will be compiled as a local variable. It is already
-    // added to the list of locals in init_compiler().
-    // can_assign is false because users can't assign to "this".
-    parse_variable(false);
-}
-
-// Parse and compile a "super" keyword
-static void parse_super(bool can_assign) {
-    // Check for invalid uses
-    if (curr_class_compiler == NULL) {
-        error_prev_token("Can't use 'super' outside of a class.");
-    }
-    else if (!curr_class_compiler->has_superclass) {
-        error_prev_token("Can't use 'super' in a class with no superclass.");
-    }
-
-    // Super is always used for method access
-    consume_mandatory(TOKEN_DOT, "Expect '.' after 'super'.");
-    consume_mandatory(TOKEN_IDENTIFIER, "Expect superclass method name.");
-
-    // Parse the method name
-    uint8_t name_const_idx = identifier_constant_index(&parser.prev_token);
-
-    // Load "this" and "super" to the stack for OP_GET_SUPER
-    // (which at runtime will create a new bound method that binds
-    // the superclass method with the receiver).
-    named_variable(synthetic_token("this"), false);     // Will be a local var
-    Token syn_super = synthetic_token("super");
-
-    // Faster invocation optimization (optional)
-    if (match_next_token(TOKEN_LEFT_PAREN)) {
-        uint8_t arg_count = parse_arg_list();
-        named_variable(syn_super, false);               // Will be an upvalue
-        emit_two_bytes(OP_SUPER_INVOKE, name_const_idx);
-        emit_byte(arg_count);
-    }
-    else {
-        named_variable(syn_super, false);               // Will be an upvalue
-        emit_two_bytes(OP_GET_SUPER, name_const_idx);
-    }
-}
-
-// Parse and compile a method, then emit bytecode (OP_METHOD)
-// to attach it to the owner class.
-static void parse_method() {
-    // Parse the method's name
-    consume_mandatory(TOKEN_IDENTIFIER, "Expect method name.");
-    uint8_t name_const_idx = identifier_constant_index(&parser.prev_token);
-
-    // Set the correct type based on method name
-    // (also so that "this" is set to stack slot 0)
-    FunctionType type = TYPE_METHOD;
-    if (parser.prev_token.length == 4 &&
-        memcmp(parser.prev_token.start, "init", 4) == 0) {
-            type = TYPE_INIT;
-        }
-
-    // Parse the method's parameter list and body using compile_function()
-    compile_function(type);
-
-    emit_two_bytes(OP_METHOD, name_const_idx);
-}
-
-// Parse and compile a class declaration
-static void parse_class_decl() {
-    // Parse the class name (as an identifier constant)
-    consume_mandatory(TOKEN_IDENTIFIER, "Expect class name.");
-    Token class_name = parser.prev_token;
-    uint8_t name_constant = identifier_constant_index(&class_name);
-    declare_variable(); // for local class decl
-
-    // Bytecode to create the class at runtime and assign to
-    // a variable (by "defining" the variable).
-    emit_two_bytes(OP_CLASS, name_constant);
-    define_variable(name_constant);
-
-    // Add a new class compiler to the linked stack
-    ClassCompiler new_class_compiler;
-    new_class_compiler.has_superclass = false;
-    new_class_compiler.enclosing = curr_class_compiler;
-    curr_class_compiler = &new_class_compiler;
-
-    // Optionally parse a superclass
-    if (match_next_token(TOKEN_LESS)) {
-        consume_mandatory(TOKEN_IDENTIFIER, "Expect superclass name.");
-
-        // Emit bytecode to push the superclass to the stack
-        parse_variable(false);
-
-        // Check for "class A < A {}"
-        if (identifiers_equal(&class_name, &parser.prev_token)) {
-            error_prev_token("A class can't subclass itself.");
-        }
-
-        //  Begin a new scope for the hidden local var "super"
-        begin_scope();
-        add_local_var(synthetic_token("super"));
-        define_variable(0); // 0 is not used because "super" is not a global var
-
-        // Emit bytecode to push the current class to the stack
-        named_variable(class_name, false);
-
-        emit_byte(OP_INHERIT);
-        new_class_compiler.has_superclass = true;
-    }
-
-    // Reload the class back to the stack so that we can inject
-    // methods into it. (If present, OP_INHERIT still pops both
-    // the superclass and the subclass, so we still need to push
-    // again).
-    named_variable(class_name, false);
-
-    // Parse and compile the class decl body
-    consume_mandatory(TOKEN_LEFT_BRACE, "Expect '{' before class body.");
-    while (!check_next_token(TOKEN_RIGHT_BRACE) && !check_next_token(TOKEN_EOF)) {
-        parse_method();
-    }
-    consume_mandatory(TOKEN_RIGHT_BRACE, "Expect '}' after class body.");
-    emit_byte(OP_POP); // Pop the class after adding methods
-
-    // Exit the scope that contains "super"
-    if (new_class_compiler.has_superclass) {
-        end_scope();
-    }
-
-    // Restore the enclosing class compiler
-    curr_class_compiler = curr_class_compiler->enclosing;
-}
+*/
 
 // Parse and compile a declaration-level statement.
 // Grammar: declaration -> classDecl | funDecl | var Decl | statement.
 static void parse_declaration() {
     if (match_next_token(TOKEN_VAR)) {
         parse_var_decl();
-    }
-    else if (match_next_token(TOKEN_FUN)) {
-        parse_func_decl();
-    }
-    else if (match_next_token(TOKEN_CLASS)) {
-        parse_class_decl();
     }
     else {
         parse_statement();
@@ -1322,7 +1120,7 @@ static void parse_declaration() {
     // To synchronize when there is a compile error
     if (parser.panicking) synchronize();
 }
-*/
+
 //----------------------------------
 //     THE ONE HEADER FUNCTION
 //----------------------------------
@@ -1342,8 +1140,7 @@ CodeChunk* compile(const char *source_code) {
 
     // Parsing declaration-level statements until EOF
     while (!match_next_token(TOKEN_EOF)) {
-        // parse_declaration();
-        parse_expression();
+        parse_declaration();
     }
 
     // End of the compiling process

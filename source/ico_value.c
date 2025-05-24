@@ -59,7 +59,7 @@ void print_value(IcoValue val) {
     }
 }
 
-bool values_equal(IcoValue a, IcoValue b) {
+bool values_equal(IcoValue b, IcoValue a) {
     // Check for same type first
     if (a.type != b.type) {
         return false;

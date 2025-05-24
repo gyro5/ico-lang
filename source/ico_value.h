@@ -12,6 +12,17 @@ typedef struct Obj Obj ;
 typedef struct ObjString ObjString;
 
 // The types of values from the VM's POV
+#ifdef C23_ENUM_FIXED_TYPE
+typedef enum : int {
+    VAL_BOOL,   // Boolean
+    VAL_NULL,   // Null
+    VAL_INT,    // 64-bit signed long int
+    VAL_FLOAT,  // IEEE 754 double-precision float
+    VAL_OBJ,    // For heap-allocated types
+    VAL_ERROR,  // Special value type for error,
+                // can't be created by users.
+} ValueType;
+#else
 typedef enum {
     VAL_BOOL,   // Boolean
     VAL_NULL,   // Null
@@ -21,10 +32,12 @@ typedef enum {
     VAL_ERROR,  // Special value type for error,
                 // can't be created by users.
 } ValueType;
+#endif
 
 // A tagged union that can hold any type
 typedef struct {
     ValueType type;
+    bool is_num;
     union {
         bool boolean;
         long num_int;
@@ -35,17 +48,17 @@ typedef struct {
     } as;
 } IcoValue;
 
-// By hashing the string ":)" and ":("
+// By hashing the string ":)" and ":(" in advance
 #define TRUE_HASH (uint32_t)2231767820
 #define FALSE_HASH (uint32_t)2248545439
 
 // Macros to convert native C values to Ico Value
-#define BOOL_VAL(b)     ((IcoValue){VAL_BOOL, {.boolean = b}})
-#define NULL_VAL        ((IcoValue){VAL_NULL, {.num_int = 0}})
-#define INT_VAL(i)      ((IcoValue){VAL_INT, {.num_int = i}})
-#define FLOAT_VAL(f)    ((IcoValue){VAL_FLOAT, {.num_float = f}})
-#define OBJ_VAL(o)      ((IcoValue){VAL_OBJ, {.obj = (Obj*)o}})
-#define ERROR_VAL(s)    ((IcoValue){VAL_ERROR, {.error = s}})
+#define BOOL_VAL(b)     ((IcoValue){VAL_BOOL, false, {.boolean = b}})
+#define NULL_VAL        ((IcoValue){VAL_NULL, false, {.num_int = 0}})
+#define INT_VAL(i)      ((IcoValue){VAL_INT, true, {.num_int = i}})
+#define FLOAT_VAL(f)    ((IcoValue){VAL_FLOAT, true, {.num_float = f}})
+#define OBJ_VAL(o)      ((IcoValue){VAL_OBJ, false, {.obj = (Obj*)o}})
+#define ERROR_VAL(s)    ((IcoValue){VAL_ERROR, false, {.error = s}})
 
 // Macros to convert an Ico Value to a C-native value
 #define AS_BOOL(val)    ((val).as.boolean)
@@ -61,6 +74,7 @@ typedef struct {
 #define IS_FLOAT(val)   ((val).type == VAL_FLOAT)
 #define IS_OBJ(val)     ((val).type == VAL_OBJ)
 #define IS_ERROR(val)   ((val).type == VAL_ERROR)
+#define IS_NUMBER(val)  ((val).is_num)
 
 // ValueArray to represent a constant pool of a chunk
 typedef struct {

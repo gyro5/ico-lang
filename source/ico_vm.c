@@ -9,7 +9,7 @@
 #include "ico_compiler.h"
 #include "ico_value.h"
 #include "ico_memory.h"
-// #include "ico_object.h"
+#include "ico_object.h"
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -42,18 +42,18 @@ static bool is_falsey(IcoValue val) {
     return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
-/*
+
 // Perform concatenation on the 2 strings on the stack top,
 // assuming they are already checked to be strings
 static void concat_strings() {
     // s2 before s1 due to stack LIFO. Peek instead of pop to prevent the strings
     // from being GC-ed so that they are available when we do memcpy().
-    ObjString* s2 = as_string(peek(0));
-    ObjString* s1 = as_string(peek(1));
+    ObjString* s2 = AS_STRING(peek(0));
+    ObjString* s1 = AS_STRING(peek(1));
 
     // Populate the new ObjString
     int concat_length = s1->length + s2->length;
-    char* concat_chars = allocate(char, concat_length + 1);
+    char* concat_chars = ALLOCATE(char, concat_length + 1);
     memcpy(concat_chars, s1->chars, s1->length);
     memcpy(concat_chars + s1->length, s2->chars, s2->length);
     concat_chars[concat_length] = '\0';
@@ -61,7 +61,7 @@ static void concat_strings() {
     ObjString* result_obj = take_own_and_create_str_obj(concat_chars, concat_length);
     pop();
     pop();
-    push(obj_val(result_obj));
+    push(OBJ_VAL(result_obj));
 }
 
 // Report a runtime error with a format string as the error message
@@ -75,28 +75,28 @@ static void runtime_error(const char* format_str, ...) {
     fputs("\n", stderr);
 
     // Print the stack trace.
-    for (int i = vm.frame_count - 1; i >= 0; i--) {
-        CallFrame* frame = &vm.frames[i];
-        ObjFunction* func = frame->closure->function;
+    // for (int i = vm.frame_count - 1; i >= 0; i--) {
+    //     CallFrame* frame = &vm.frames[i];
+    //     ObjFunction* func = frame->closure->function;
 
-        // Calculate the index of the current instruction from
-        // the instruction pointer and the start of the code chunk.
-        // "- 1" is because ip points to the next instruction.
-        size_t bytecode_idx = frame->ip - func->chunk.code_chunk - 1;
-        fprintf(stderr, "[line %d] in ", func->chunk.line_nums[bytecode_idx]);
+    //     // Calculate the index of the current instruction from
+    //     // the instruction pointer and the start of the code chunk.
+    //     // "- 1" is because ip points to the next instruction.
+    //     size_t bytecode_idx = frame->ip - func->chunk.code_chunk - 1;
+    //     fprintf(stderr, "[line %d] in ", func->chunk.line_nums[bytecode_idx]);
 
-        // Print the function name
-        if (func->name != NULL) {
-            fprintf(stderr, "%s()\n", func->name->chars);
-        }
-        else {
-            fprintf(stderr, "script\n");
-        }
-    }
+    //     // Print the function name
+    //     if (func->name != NULL) {
+    //         fprintf(stderr, "%s()\n", func->name->chars);
+    //     }
+    //     else {
+    //         fprintf(stderr, "script\n");
+    //     }
+    // }
 
     reset_stack(); // For the next REPL run
 }
-
+/*
 // Define a new native function and add it and its name
 // as value and key to the hash table of global variables.
 static void define_native_func(const char* name, NativeFn func) {
@@ -154,37 +154,6 @@ static bool call_value(Value callee, int arg_count) {
                 return true;
             }
 
-            case OBJ_CLASS: {
-                ObjClass* class = as_class(callee);
-
-                // Put the new instance right before the argument
-                // list of the initializer
-                vm.stack_top[-arg_count - 1] = obj_val(new_instance_obj(class));
-
-                // Try to call the initializer if available
-                Value initializer;
-                if (table_get(&class->methods, vm.init_str, &initializer)) {
-                    return call_helper(as_closure(initializer), arg_count);
-                }
-                else if (arg_count != 0) {
-                    // No initializer but still passed arguments
-                    runtime_error("Expected 0 argument but got %d.", arg_count);
-                    return false;
-                }
-
-                return true;
-            }
-
-            case OBJ_BOUND_METHOD: {
-                ObjBoundMethod* bound = as_bound_method(callee);
-
-                // Add the receiver to stack slot 0 of the new call frame
-                // (overwriting the ObjBoundMethod we just evaluated).
-                vm.stack_top[-arg_count - 1] = bound->receiver;
-
-                return call_helper(bound->method, arg_count);
-            }
-
             default: // Non-callable Obj types
                 break;
         }
@@ -240,73 +209,8 @@ static void close_all_upvalues_from(Value* last) {
     }
 }
 
-// Define a method with the given name and the ObjClosure at stack top,
-// then add it to the ObjClass at the near-top of the stack.
-static void define_method(ObjString* method_name) {
-    // Btw, no need to type-check the class and the closure,
-    // because the VM can trust the compiler to make correct bytecode.
-    Value method_closure = peek(0);
-    ObjClass* class = as_class(peek(1));
-    table_set(&class->methods, method_name, method_closure);
-    pop(); // Pop the ObjClosure val
-}
-
-// Find and bind the method with the given name from the given class
-// with the object at stack top, then create a new ObjBoundMethod
-// and push it on the stack. Report runtime error if not found.
-static bool bind_method(ObjClass* class, ObjString* name) {
-    // Try to look up the method
-    Value method;
-    if (!table_get(&class->methods, name, &method)) {
-        runtime_error("Undefined property '%s'.", name->chars);
-        return false;
-    }
-
-    // Found
-    ObjBoundMethod* bound = new_bound_method(peek(0), as_closure(method));
-    pop(); // Pop the instance
-    push(obj_val(bound)); // Push in the new ObjBoundMethod
-    return true;
-}
-
-// Perform a method invocation with the method with the given name
-// in the given class. The class is passed separately to support
-// inheritance. The receiver and the argument list are already
-// on the VM stack.
-static bool invoke_from_class(ObjClass* class, ObjString* method_name, int arg_count) {
-    Value method;
-    if (!table_get(&class->methods, method_name, &method)) {
-        runtime_error("Undefined property '%s'.", method_name->chars);
-        return false;
-    }
-
-    // Can call as closure because "this" is already in the right stack slot
-    return call_helper(as_closure(method), arg_count);
-}
-
-// Perform a fast invocation of a method, assuming the receiver and
-// the argument list are already on the VM stack.
-static bool invoke_helper(ObjString* name, int arg_count) {
-    // Get the receiver on the stack and do a check
-    Value receiver = peek(arg_count);
-    if (!is_instance(receiver)) {
-        runtime_error("Only instances have methods.");
-        return false;
-    }
-
-    ObjInstance* instance = as_instance(receiver);
-
-    // Have to check for shadowing fields first
-    Value val;
-    if (table_get(&instance->fields, name, &val)) {
-        vm.stack_top[-arg_count - 1] = val;
-        return call_value(val, arg_count);
-    }
-
-    // Not a field -> Invoke normally as a method
-    return invoke_from_class(instance->class_, name, arg_count);
-}
 */
+
 
 /*************************************
     THE MAIN VM EXECUTION FUNCTION
@@ -336,30 +240,37 @@ static InterpretResult vm_run() {
     (uint16_t)((curr_frame->ip[-2] << 8) | curr_frame->ip[-1]))
 
 // Same as read_constant() but also convert to ObjString*
-// #define READ_STRING() AS(read_constant())
+#define READ_STRING() AS_STRING(READ_CONSTANT())
 
-// Common macro for the binary arithmetic instruction. "op" is
-// the binary operation, and "retValType" is the macro of the
-// output Value of the operation.
+// Helper for the below macro. Also used for OP_ADD and OP_DIVIDE.
+#define BINARY_OP_RESULT(va, vb, floatCaseVal, intCaseVal, op) \
+    IS_FLOAT(va) ? /*va is float*/ \
+        (IS_FLOAT(vb) ? \
+            floatCaseVal(AS_FLOAT(va) op AS_FLOAT(vb)) : \
+            floatCaseVal(AS_FLOAT(va) op AS_INT(vb))) \
+        : /*va is int*/ \
+        (IS_FLOAT(vb) ? \
+            floatCaseVal(AS_INT(va) op AS_FLOAT(vb)) : \
+            intCaseVal(AS_INT(va) op AS_INT(vb)))
+
+// Common macro for the binary number operation:
+// - op: the binary operation
+// - floatCaseVal: result type when either value is float
+// - intCaseVal: result type when both values are int
 //
 // b is popped first because of LIFO.
-//
-// The do-while loop is used to make sure the multiple expanded
-// statements are in the same scope, as to allow ";" to be after
-// the macro call. The loop will only run once.
-#define binary_op(retValType, op) \
-    do { \
-        /* Check that the 2 operands are numbers */ \
-        if (!is_number(peek(0)) || !is_number(peek(1))) { \
-            runtime_error("Operands must be numbers."); \
-            return INTERPRET_RUNTIME_ERROR; \
-        } \
-        \
-        /* Perform the binary operation */ \
-        double b = as_number(pop()); \
-        double a = as_number(pop()); \
-        push(retValType(a op b)); \
-    } while(false)
+// This macro is inspired by Lua.
+#define BINARY_OP(floatCaseVal, intCaseVal, op) \
+    { \
+    IcoValue vb = peek(0); \
+    IcoValue va = peek(1); \
+    if (!IS_NUMBER(vb) || !IS_NUMBER(va)) { \
+        runtime_error("Operands must be 2 numbers."); \
+        return INTERPRET_RUNTIME_ERROR; \
+    } \
+    vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, floatCaseVal, intCaseVal, op); \
+    pop(); \
+    }
 
     // Read and execute the bytecode byte-by-byte
     for (;;) {
@@ -398,48 +309,47 @@ static InterpretResult vm_run() {
                 break;
             }
 
-            // case OP_NULL: {
-            //     push(NULL_VAL);
-            //     break;
-            // }
-
-            // case OP_TRUE: {
-            //     push(BOOL_VAL(true));
-            //     break;
-            // }
-
-            // case OP_FALSE: {
-            //     push(BOOL_VAL(false));
-            //     break;
-            // }
-
-            case OP_NEGATE: {
-                // Check for number operand
-                IcoValue val = peek(0);
-
-                if (IS_INT(val)) {
-                    push(INT_VAL(-AS_INT(pop())));
-                }
-                else if (IS_FLOAT(val)) {
-                    push(FLOAT_VAL(-AS_FLOAT(pop())));
-                }
-                else {
-                    printf("Operand must be an int or a float."); // TODO change to runtime_error
-                    return INTERPRET_RUNTIME_ERROR;
-                }
-
+            case OP_NULL: {
+                push(NULL_VAL);
                 break;
             }
-/*
-            // OP_ADD is different because it also handles string concatenation
-            case OP_ADD: {
-                if (is_string(peek(0)) && is_string(peek(1))) {
+
+            case OP_TRUE: {
+                push(BOOL_VAL(true));
+                break;
+            }
+
+            case OP_FALSE: {
+                push(BOOL_VAL(false));
+                break;
+            }
+
+            case OP_NEGATE: {
+                IcoValue v = peek(0);
+
+                // Perform direct negation instead of pop then push
+                if (IS_INT(v)) {
+                    vm.stack_top[-1].as.num_int = -AS_INT(v);
+                }
+                else if (IS_FLOAT(v)) {
+                    vm.stack_top[-1].as.num_float = -AS_FLOAT(v);
+                }
+                else {
+                    runtime_error("Operand must be an int or a float.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
+
+            case OP_ADD: { // OP_ADD also handles string concatenation
+                IcoValue vb = peek(0);
+                IcoValue va = peek(1);
+                if (IS_STRING(va) && IS_STRING(vb)) {
                     concat_strings();
                 }
-                else if (is_number(peek(0)) && is_number(peek(1))) {
-                    double b = as_number(pop());
-                    double a = as_number(pop());
-                    push(number_val(a + b));
+                else if (IS_NUMBER(va) && IS_NUMBER(vb)) {
+                    vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, FLOAT_VAL, INT_VAL, +);
+                    pop();
                 }
                 else {
                     runtime_error("Operands must be 2 numbers or 2 strings.");
@@ -448,27 +358,55 @@ static InterpretResult vm_run() {
                 break;
             }
 
+            case OP_SUBTRACT: BINARY_OP(FLOAT_VAL, INT_VAL, -); break;
+            case OP_MULTIPLY: BINARY_OP(FLOAT_VAL, INT_VAL, *); break;
 
-            case OP_SUBTRACT: binary_op(number_val, -); break;
-            case OP_MULTIPLY: binary_op(number_val, *); break;
-            case OP_DIVIDE:   binary_op(number_val, /); break;
-
-            case OP_NOT:
-                push(bool_val(is_falsey(pop())));
-                break;
-
-            case OP_EQUAL: {
-                // b before a
-                Value b = pop();
-                Value a = pop();
-
-                push(bool_val(values_equal(a, b)));
+            case OP_DIVIDE: {
+                IcoValue vb = peek(0);
+                IcoValue va = peek(1);
+                if (!IS_NUMBER(vb) || !IS_NUMBER(va)) {
+                    runtime_error("Operands must be 2 numbers.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                if (IS_INT(va) && IS_INT(vb) && AS_INT(vb) == 0) {
+                    runtime_error("Can't do integer division by 0.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, FLOAT_VAL, INT_VAL, /);
+                pop();
                 break;
             }
 
-            case OP_GREATER: binary_op(bool_val, >); break;
-            case OP_LESS:    binary_op(bool_val, <); break;
-*/
+            case OP_MODULO: {
+                IcoValue vb = peek(0);
+                IcoValue va = peek(1);
+                if (!IS_INT(vb) || !IS_INT(va)) {
+                    runtime_error("Operands for modulo must be 2 integers.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                long b = AS_INT(vb);
+                if (b == 0) {
+                    runtime_error("Can't do integer modulo by 0.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                vm.stack_top[-2] = INT_VAL(AS_INT(va) % b);
+                pop();
+                break;
+            }
+
+            case OP_NOT:
+                // Direct assignment instead of pop then push
+                vm.stack_top[-1] = BOOL_VAL(is_falsey(vm.stack_top[-1]));
+                break;
+
+            case OP_EQUAL:
+                // Stack LIFO -----------> b      a
+                push(BOOL_VAL(values_equal(pop(), pop())));
+                break;
+
+            case OP_GREATER: BINARY_OP(BOOL_VAL, BOOL_VAL, >); break;
+            case OP_LESS:    BINARY_OP(BOOL_VAL, BOOL_VAL, <); break;
+
             case OP_RETURN: {
                 // Value ret_val = pop();
 
@@ -491,17 +429,20 @@ static InterpretResult vm_run() {
                 return INTERPRET_OK;
                 break;
             }
-/*
-            case OP_PRINT: {
+
+            case OP_PRINT:
                 // The expression has been evaluated by the preceeding
                 // bytecodes and pushed on the VM's stack.
                 print_value(pop());
+                break;
+
+            case OP_PRINTLN:
+                print_value(pop());
                 printf("\n");
                 break;
-            }
 
             case OP_POP: pop(); break;
-
+/*
             case OP_DEFINE_GLOBAL: {
                 // Insert the global variable and its initialized value
                 // into the globals hash table.
@@ -542,7 +483,7 @@ static InterpretResult vm_run() {
 
                 break;
             }
-
+/*
             case OP_GET_LOCAL: {
                 // Get the index of the local variable on the VM stack
                 uint8_t stack_index = read_next_byte();
@@ -760,13 +701,18 @@ static InterpretResult vm_run() {
                 break;
             }
                 */
+
+            default: { // For dev only, will be unreachable
+                printf("Unsupported opcode!");
+                break;
+            }
         }
     }
 
 // Because these macros are only used in this function. TODO
 #undef READ_NEXT_BYTE
 #undef READ_CONSTANT
-#undef read_string
+#undef READ_STRING
 #undef READ_SHORT
 #undef binary_op
 }
@@ -805,17 +751,16 @@ void init_vm() {
     // vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
 
     // // Initialize the hash tables
-    // init_table(&vm.globals); // table of global variables
-    // init_table(&vm.strings); // table for string interning
+    init_table(&vm.globals); // table of global variables
+    init_table(&vm.strings); // table for string interning
 
     // // Add native functions
     // define_native_func("clock", clock_native);
 }
 
 void free_vm() {
-    // free_table(&vm.globals);
-    // free_table(&vm.strings);
-    // vm.init_str = NULL;
+    free_table(&vm.globals);
+    free_table(&vm.strings);
     // free_objects();
 }
 
@@ -835,9 +780,6 @@ InterpretResult vm_interpret(const char *source_code) {
 
     vm.chunk = compile(source_code);
     vm.ip = vm.chunk->chunk;
-
-    printf("VM STARTING\n");
-
 
     // Run and return the result
     return vm_run();

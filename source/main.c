@@ -16,33 +16,33 @@ const char* repl_prompt[] = {
     [INTERPRET_IDLE] = COLOR_BOLD COLOR_BLUE "(o_o) " COLOR_RESET,
     [INTERPRET_OK] = COLOR_BOLD COLOR_GREEN "(^_^) " COLOR_RESET,
     [INTERPRET_COMPILE_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
-    [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(>_<) " COLOR_RESET,
+    [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
 };
 
-// #define run_code(code) vm_interpret(code)
+#define run_code(code) vm_interpret(code)
 
-#ifdef DEBUG_PRINT_TOKEN
+// #ifdef DEBUG_PRINT_TOKEN
 
-#define run_code(code) scan_code(code)
+// #define run_code(code) scan_code(code)
 
-static InterpretResult scan_code(const char* code) {
-    init_scanner(code);
+// static InterpretResult scan_code(const char* code) {
+//     init_scanner(code);
 
-    Token t = scan_next_token();
+//     Token t = scan_next_token();
 
-    while (t.type != TOKEN_EOF) {
-        print_token(t);
-        t = scan_next_token();
-    }
+//     while (t.type != TOKEN_EOF) {
+//         print_token(t);
+//         t = scan_next_token();
+//     }
 
-    compile(code);
+//     compile(code);
 
-    return INTERPRET_OK;
-}
+//     return INTERPRET_OK;
+// }
 
-#endif
+// #endif
 
-// Run the clox REPL
+// Run the Ico REPL
 static void run_repl() {
     // To hold the current line of REPL code.
     // Limit the line size to 1024 for simplicity's sake.
@@ -61,7 +61,7 @@ static void run_repl() {
         printf("\n%s", repl_prompt[res]);
 
         if (!fgets(line, sizeof(line), stdin)) {
-            printf("Exiting Ico REPL...\n");
+            printf(COLOR_BOLD COLOR_BLUE"\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
             break;
         }
 
@@ -69,7 +69,7 @@ static void run_repl() {
     }
 }
 
-// Read a Lox script and return a string containing
+// Read a Ico script and return a string containing
 // the source code
 static char* read_file(const char* path) {
     // Open the source code file
@@ -109,7 +109,7 @@ static char* read_file(const char* path) {
     return buff;
 }
 
-// Run a Lox script
+// Run a Ico script
 static void run_script(char* path) {
     char* source_code = read_file(path);
     InterpretResult result = run_code(source_code);
@@ -129,10 +129,6 @@ static void run_script(char* path) {
 
 int main(int argc, char *argv[]) {
     init_vm();
-
-    // Dev:
-    printf("Size of IcoValue: %zu\n", sizeof(IcoValue));
-    printf("Size of struct Obj: %zu\n", sizeof(Obj));
 
     // Script mode or REPL mode
     if (argc == 1) {

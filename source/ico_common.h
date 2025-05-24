@@ -8,13 +8,13 @@
 #define C23_ENUM_FIXED_TYPE
 
 // ANSI colors
-#define COLOR_RED     "\x1b[31m"
-#define COLOR_GREEN   "\x1b[32m"
-#define COLOR_BLUE    "\x1b[34m"
-#define COLOR_RESET   "\x1b[0m"
-#define COLOR_BOLD    "\x1b[1m"
+#define COLOR_RED     "\e[31m"
+#define COLOR_GREEN   "\e[32m"
+#define COLOR_BLUE    "\e[34m"
+#define COLOR_RESET   "\e[0m"
+#define COLOR_BOLD    "\e[1m"
 
-#define DEBUG_PRINT_BYTECODE
+// #define DEBUG_PRINT_BYTECODE
 #define DEBUG_TRACE_EXECUTION
 // #define DEBUG_STRESS_GC
 // #define DEBUG_LOG_GC

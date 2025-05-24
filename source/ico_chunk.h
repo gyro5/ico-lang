@@ -29,6 +29,7 @@ typedef enum {
     OP_LESS,        // [comparison <]
 
     OP_PRINT,       // [print]: Pop the VM stack and print the value
+    OP_PRINTLN,     // [println]
     OP_POP,         // [pop]: Pop the VM stack
 
     // For global and local variables
