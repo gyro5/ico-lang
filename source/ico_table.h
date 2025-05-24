@@ -12,8 +12,8 @@ typedef struct {
 
 // The struct for the hash table
 typedef struct {
-    int count;
-    int capacity;
+    uint32_t count;
+    uint32_t capacity;
     Entry* entries;
 } Table;
 

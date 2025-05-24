@@ -18,11 +18,11 @@ Entry absent_entry = {NULL_VAL, NULL_VAL};
 // Empty: key=null, value=null
 // Tombstone: key=null, value=true
 
-static Entry* find_int_entry(Entry* entries, int capacity, IcoValue vkey) {
+static Entry* find_int_entry(Entry* entries, uint32_t capacity, IcoValue vkey) {
     // See find_obj_entry for algorithm explanation comments
 
     uint32_t index = (vkey.as.ui32[0] ^ vkey.as.ui32[1]) & (capacity - 1);
-    int ikey = AS_INT(vkey);
+    long ikey = AS_INT(vkey);
     Entry* tombstone = NULL;
     for (;;) {
         Entry* entry = entries + index;
@@ -42,7 +42,7 @@ static Entry* find_int_entry(Entry* entries, int capacity, IcoValue vkey) {
     }
 }
 
-static Entry* find_float_entry(Entry* entries, int capacity, IcoValue vkey) {
+static Entry* find_float_entry(Entry* entries, uint32_t capacity, IcoValue vkey) {
     // See find_obj_entry for algorithm explanation comments
 
     uint32_t index = (vkey.as.ui32[0] ^ vkey.as.ui32[1]) & (capacity - 1);
@@ -66,7 +66,7 @@ static Entry* find_float_entry(Entry* entries, int capacity, IcoValue vkey) {
     }
 }
 
-static Entry* find_bool_entry(Entry* entries, int capacity, bool vkey) {
+static Entry* find_bool_entry(Entry* entries, uint32_t capacity, bool vkey) {
     // See find_obj_entry for algorithm explanation comments
 
     uint32_t hash = vkey ? TRUE_HASH : FALSE_HASH;
@@ -90,7 +90,7 @@ static Entry* find_bool_entry(Entry* entries, int capacity, bool vkey) {
     }
 }
 
-static Entry* find_obj_entry(Entry* entries, int capacity, Obj* target) {
+static Entry* find_obj_entry(Entry* entries, uint32_t capacity, Obj* target) {
     // Calculate the supposed index from the hash
     uint32_t index = target->hash & (capacity - 1);
 
@@ -133,7 +133,7 @@ static Entry* find_obj_entry(Entry* entries, int capacity, Obj* target) {
 // of the table so that newly allocated entry array can be used.
 // Return an empty slot if can't find target. Return NULL if
 // target key is invalid.
-static Entry* find_entry(Entry* entries, int capacity, IcoValue target) {
+static Entry* find_entry(Entry* entries, uint32_t capacity, IcoValue target) {
     // Switch case based on key type
     switch (target.type) {
         case VAL_BOOL: return find_bool_entry(entries, capacity, AS_BOOL(target));
@@ -148,12 +148,12 @@ static Entry* find_entry(Entry* entries, int capacity, IcoValue target) {
 }
 
 // Resize the table's backing array to the new capacity
-static void adjust_table_capacity(Table* table, int new_capacity) {
+static void adjust_table_capacity(Table* table, uint32_t new_capacity) {
     Entry* new_entries = ALLOCATE(Entry, new_capacity);
 
     // Initialize the new memory block, as C doesn't
     // guarantee the allocated block is clean
-    for (int i = 0; i < new_capacity; i++) {
+    for (uint32_t i = 0; i < new_capacity; i++) {
         new_entries[i].key = NULL_VAL;
         new_entries[i].value = NULL_VAL;
     }
@@ -161,7 +161,7 @@ static void adjust_table_capacity(Table* table, int new_capacity) {
     // Re-inserting all existing elements.
     // Recalculate count to exclude tombstones.
     table->count = 0;
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
         if (IS_NULL(entry->key)) continue;
 
@@ -211,7 +211,7 @@ bool table_get(Table* table, IcoValue key, IcoValue* dest) {
 bool table_set(Table* table, IcoValue key, IcoValue value) {
     // Check the load factor and grow the table as needed
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
-        int new_cap = GROW_CAPACITY(table->capacity);
+        uint32_t new_cap = GROW_CAPACITY(table->capacity);
         adjust_table_capacity(table, new_cap);
     }
 
@@ -246,7 +246,7 @@ bool table_delete(Table* table, IcoValue key) {
 }
 
 void table_add_all(Table* from, Table* to) {
-    for (int i = 0; i < from->capacity; i++) {
+    for (uint32_t i = 0; i < from->capacity; i++) {
         Entry* entry = &from->entries[i];
         if (!IS_NULL(entry->key)) {
             table_set(to, entry->key, entry->value);
@@ -284,7 +284,7 @@ ObjString* table_find_string(Table* table, const char* str, int length, uint32_t
 }
 
 // void table_remove_white(Table* table) {
-//     for (int i = 0; i < table->capacity; i++) {
+//     for (uint32_t i = 0; i < table->capacity; i++) {
 //         Entry* entry = &table->entries[i];
 //         if (entry->key != NULL && !entry->key->obj.is_marked) {
 //             // Author's code:
