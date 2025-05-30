@@ -16,9 +16,9 @@ stmt -> exprStmt | loop | if | print | return | block ;
 
 exprStmt -> expr ";" ; # Will print in REPL with sth like OP_PRINT
 
-loop -> "@" expr block ;
+loop -> "@" expr ":" stmt ;
 
-if -> "\ " expr "?" block (":" block)? ; # to mirror the ternary expr
+if -> "\ " expr "?" stmt (":" stmt)? ; # to mirror the ternary expr
 
 print -> (">>" | ">>>") expr ";" ;
 

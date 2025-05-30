@@ -111,9 +111,10 @@ static void parse_down_triangle(bool can_assign);
 static void parse_declaration();
 static void parse_statement();
 
+// The Pratt parser table is for parsing expressions (not statements)
 ParseRule parse_rules[] = {
     [TOKEN_VAR]             = {NULL, NULL, PREC_NONE},
-    [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE},
     [TOKEN_QUESTION]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE}, // TODO
     [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE}, // TODO
@@ -145,7 +146,7 @@ ParseRule parse_rules[] = {
     [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_UP_TRIANGLE]     = {parse_func_literal, NULL, PREC_NONE},
-    [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE},
     [TOKEN_DOWN_TRIANGLE]   = {parse_down_triangle, NULL, PREC_NONE},
     [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
     [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
@@ -314,6 +315,47 @@ static uint8_t add_constant_to_pool(IcoValue val) {
 static void emit_constant(IcoValue val) {
     // Add OP_CONSTANT and the constant index to the chunk
     emit_two_bytes(OP_CONSTANT, add_constant_to_pool(val));
+}
+
+// Emit a jump instruction and 2 placeholder operand bytes,
+// then return the chunk offset right after the jump opcode.
+static int emit_jump(uint8_t opcode) {
+    emit_byte(opcode);
+
+    // Placeholder for jump offset
+    emit_byte(0xff);
+    emit_byte(0xff);
+
+    return current_chunk()->size - 2;
+}
+
+// Patch a jump instruction in the chunk with the correct jump distance/offset,
+// which is from the jump opcode to the most recently added bytecode.
+static void patch_jump(int offset) {
+    // -2 to adjust for the 2 bytes of the jump distance itself
+    int dist = current_chunk()->size - offset - 2;
+
+    if (dist > UINT16_MAX) {
+        error_prev_token("Too much bytecode to jump over.");
+    }
+
+    // Convert the jump distance to an unsigned short
+    // byte-by-byte and put it in the chunk
+    current_chunk()->chunk[offset] = (dist >> 8) & 0xff;
+    current_chunk()->chunk[offset + 1] = dist & 0xff;
+}
+
+// Emit an OP_LOOP that takes the instruction pointer
+// back to the passed offset (loop_start).
+static void emit_loop(int loop_start) {
+    emit_byte(OP_LOOP);
+
+    // Calculate the offset. +2 to account for the 2-byte offset.
+    int offset = current_chunk()->size + 2 - loop_start;
+    if (offset > UINT16_MAX) error_prev_token("Loop body too large.");
+
+    emit_byte((offset >> 8) & 0xff);
+    emit_byte(offset & 0xff);
 }
 
 // Initialize a new compiler struct, and set the current one
@@ -820,39 +862,12 @@ static void parse_expression_stmt() {
     emit_byte(OP_POP);
 }
 
-/*
-// Emit a jump instruction and 2 placeholder operand bytes,
-// then return the chunk offset right after the jump opcode.
-static int emit_jump(uint8_t opcode) {
-    emit_byte(opcode);
-    emit_byte(0xff);
-    emit_byte(0xff);
-    return current_chunk()->size - 2;
-}
-
-// Patch a jump instruction in the chunk with the correct
-// jump distance/offset, which is from the jump opcode to
-// the most recently added bytecode.
-static void patch_jump(int offset) {
-    // -2 to adjust for the 2 bytes of the jump distance itself
-    int dist = current_chunk()->size - offset - 2;
-
-    if (dist > UINT16_MAX) {
-        error_prev_token("Too much bytecode to jump over.");
-    }
-
-    // Convert the jump distance to an unsigned short
-    // byte-by-byte and put it in the chunk
-    current_chunk()->chunk[offset] = (dist >> 8) & 0xff;
-    current_chunk()->chunk[offset + 1] = dist & 0xff;
-}
-
 // Parse and compile an if statement.
+// Grammar: if -> "\ " expr "?" stmt (":" stmt)? ;
 static void parse_if_stmt() {
     // The condition
-    consume_mandatory(TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
     parse_expression();
-    consume_mandatory(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    consume_mandatory(TOKEN_QUESTION, "Expect '?' after condition.");
 
     // Parse the then branch
     int then_jump_offset = emit_jump(OP_JUMP_IF_FALSE); // to jump through then
@@ -865,7 +880,7 @@ static void parse_if_stmt() {
 
     // Optionally parse the else branch
     emit_byte(OP_POP); // to pop the condition expr in the else branch
-    if (match_next_token(TOKEN_ELSE)) parse_statement();
+    if (match_next_token(TOKEN_COLON)) parse_statement();
     patch_jump(else_jump_offset);
 }
 
@@ -897,27 +912,15 @@ static void parse_or(bool can_assign) {
     patch_jump(end_jump_offset);
 }
 
-// Emit an OP_LOOP that takes the instruction pointer
-// back to the passed offset (loop_start).
-static void emit_loop(int loop_start) {
-    emit_byte(OP_LOOP);
-
-    // Calculate the offset. +2 to account for the 2-byte offset.
-    int offset = current_chunk()->size + 2 - loop_start;
-    if (offset > UINT16_MAX) error_prev_token("Loop body too large.");
-
-    emit_byte((offset >> 8) & 0xff);
-    emit_byte(offset & 0xff);
-}
-
 // Parse and compile a while loop.
+// Grammar: loop -> "@" expr ":" stmt ;
 static void parse_while_stmt() {
+    // The position in the bytecode that is the start of the loop
     int loop_start = current_chunk()->size;
 
     // The loop condition
-    consume_mandatory(TOKEN_LEFT_PAREN, "Expect'(' after 'while'.");
     parse_expression();
-    consume_mandatory(TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+    consume_mandatory(TOKEN_COLON, "Expect ':' after loop condition.");
 
     // Jump to exit the loop when the condition is false
     int exit_jump_offset = emit_jump(OP_JUMP_IF_FALSE);
@@ -931,7 +934,7 @@ static void parse_while_stmt() {
     patch_jump(exit_jump_offset);
     emit_byte(OP_POP); // pop the loop condition
 }
-*/
+
 // Parse and compile a return statement
 static void parse_return_stmt() {
     // Can't return from top-level code
@@ -958,12 +961,12 @@ static void parse_statement() {
     else if (match_next_token(TOKEN_3_GREATER)) {
         parse_print_stmt(true);
     }
-    // else if (match_next_token(TOKEN_IF)) {
-    //     parse_if_stmt();
-    // }
-    // else if (match_next_token(TOKEN_WHILE)) {
-    //     parse_while_stmt();
-    // }
+    else if (match_next_token(TOKEN_BACK_SLASH)) {
+        parse_if_stmt();
+    }
+    else if (match_next_token(TOKEN_LOOP)) {
+        parse_while_stmt();
+    }
     else if (match_next_token(TOKEN_RETURN)) {
         parse_return_stmt();
     }
@@ -1031,6 +1034,8 @@ static void parse_func_literal(bool can_assign) {
 
 // Parse and compile a '\/' symbol
 static void parse_down_triangle(bool can_assign) {
+    // '\/' is treated exactly like a local variable. Note that the name '\/'
+    // only exists during scanning and compiling phases for resolving purpose.
     parse_variable(false);
 }
 
@@ -1092,6 +1097,7 @@ static void parse_var_decl() {
     // Prepare the initialization value (or nil if not available)
     if (match_next_token(TOKEN_EQUAL)) {
         if (match_next_token(TOKEN_UP_TRIANGLE)) { // curr token is '/\'
+            // Special case: create a function with the same name
             compile_function(TYPE_FUNCTION, var_name.start, var_name.length);
         }
         else {
