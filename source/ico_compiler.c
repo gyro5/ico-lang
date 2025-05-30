@@ -317,7 +317,7 @@ static void emit_constant(IcoValue val) {
 
 // Initialize a new compiler struct, and set the current one
 // to be its parent ("enclosing").
-static void init_compiler(Compiler* compiler, FunctionType type) {
+static void init_compiler(Compiler* compiler, FunctionType type, const char* name, int length) {
     compiler->enclosing = curr_compiler;
     compiler->function = NULL;
     compiler->func_type = type;
@@ -326,9 +326,8 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
     compiler->function = new_function_obj(); // Immediately reassign bc GC stuff
     curr_compiler = compiler;
 
-    // TODO anonymous function name or sth else
     if (type != TYPE_TOP_LEVEL) {
-        curr_compiler->function->name = copy_and_create_str_obj("temp", 4);
+        curr_compiler->function->name = copy_and_create_str_obj(name, length);
     }
 
     // Use the first slot in the call frame for the ObjFunction
@@ -765,22 +764,6 @@ static void parse_variable(bool can_assign) {
     named_variable(parser.prev_token, can_assign);
 }
 
-// Parse and compile a variable declaration.
-static void parse_var_decl() {
-    uint8_t arg = parse_var_name("Expect variable name.");
-
-    // Prepare the initialization value (or nil if not available)
-    if (match_next_token(TOKEN_EQUAL)) {
-        parse_expression();
-    }
-    else {
-        emit_byte(OP_NULL);
-    }
-
-    consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after variable declaration;");
-    define_variable(arg); // OP_DEFINE_GLOBAL or mark initialized local
-}
-
 // Parse and compile a print statement.
 static void parse_print_stmt(bool is_println) {
     // Assume the print token has been consumed
@@ -993,20 +976,12 @@ static void parse_statement() {
     }
 }
 
-// Compile a function into a bytecode chunk and store
+// Compile a function literal into a bytecode chunk and store
 // the resulting ObjFunction in the constant pool.
-// (Because function definitions are literals.)
-static void compile_function(FunctionType type) {
-
-}
-
-// Parse and compile a function literal
-// Grammar: function -> "/\ " IDENTIFIER* "->" (expr | block);
-static void parse_func_literal(bool can_assign) {
-    // The "/\" is already consumed.
+static void compile_function(FunctionType type, const char* name, int length) {
     // Start a new compiler struct for the function being compiled
     Compiler func_compiler;
-    init_compiler(&func_compiler, TYPE_FUNCTION);
+    init_compiler(&func_compiler, type, name, length);
     begin_scope();
 
     // Compile the parameters
@@ -1044,6 +1019,13 @@ static void parse_func_literal(bool can_assign) {
         emit_byte(func_compiler.upvalues[i].is_local ? 1 : 0);
         emit_byte(func_compiler.upvalues[i].index);
     }
+}
+
+// Parse and compile a function literal
+// Grammar: function -> "/\ " IDENTIFIER* "->" (expr | block);
+static void parse_func_literal(bool can_assign) {
+    // The "/\" is already consumed.
+    compile_function(TYPE_FUNCTION, "(anonymous)", 11);
 }
 
 // Parse a list of arguments for a function call
@@ -1096,6 +1078,32 @@ static void parse_dot(bool can_assign) {
 }
 */
 
+// Parse and compile a variable declaration.
+static void parse_var_decl() {
+    uint8_t arg = parse_var_name("Expect variable name.");
+
+    // Prepare the initialization value (or nil if not available)
+    if (check_next_token(TOKEN_EQUAL)) {
+        // Prev token is identifier, curr token is '='
+        Token var_name = parser.prev_token;
+        next_token();
+        // Now prev token is '=', curr token will checked
+
+        if (match_next_token(TOKEN_UP_TRIANGLE)) {
+            compile_function(TYPE_FUNCTION, var_name.start, var_name.length);
+        }
+        else {
+            parse_expression();
+        }
+    }
+    else {
+        emit_byte(OP_NULL);
+    }
+
+    consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after variable declaration;");
+    define_variable(arg); // OP_DEFINE_GLOBAL or mark initialized local
+}
+
 // Parse and compile a declaration-level statement.
 // Grammar: decl -> var_decl | stmt;
 static void parse_declaration() {
@@ -1120,7 +1128,7 @@ ObjFunction* compile(const char *source_code) {
 
     // Initialize the parser and compiler
     Compiler compiler;
-    init_compiler(&compiler, TYPE_TOP_LEVEL);
+    init_compiler(&compiler, TYPE_TOP_LEVEL, NULL, 0);
     parser.panicking = false;
     parser.had_error = false;
 
