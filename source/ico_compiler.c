@@ -1025,7 +1025,7 @@ static void compile_function(FunctionType type, const char* name, int length) {
 // Grammar: function -> "/\ " IDENTIFIER* "->" (expr | block);
 static void parse_func_literal(bool can_assign) {
     // The "/\" is already consumed.
-    compile_function(TYPE_FUNCTION, "(anonymous)", 11);
+    compile_function(TYPE_FUNCTION, "/\\", 2);
 }
 
 // Parse a list of arguments for a function call
@@ -1081,15 +1081,11 @@ static void parse_dot(bool can_assign) {
 // Parse and compile a variable declaration.
 static void parse_var_decl() {
     uint8_t arg = parse_var_name("Expect variable name.");
+    Token var_name = parser.prev_token;
 
     // Prepare the initialization value (or nil if not available)
-    if (check_next_token(TOKEN_EQUAL)) {
-        // Prev token is identifier, curr token is '='
-        Token var_name = parser.prev_token;
-        next_token();
-        // Now prev token is '=', curr token will checked
-
-        if (match_next_token(TOKEN_UP_TRIANGLE)) {
+    if (match_next_token(TOKEN_EQUAL)) {
+        if (match_next_token(TOKEN_UP_TRIANGLE)) { // curr token is '/\'
             compile_function(TYPE_FUNCTION, var_name.start, var_name.length);
         }
         else {

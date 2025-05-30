@@ -91,7 +91,7 @@ static void print_function_obj(ObjFunction* func) {
         printf("<script>");
         return;
     }
-    printf("<fn %s>", func->name->chars);
+    printf("<fn %s()>", func->name->chars);
 }
 
 //------------------------------
