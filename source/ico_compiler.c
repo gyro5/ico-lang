@@ -41,13 +41,6 @@ typedef struct {
 } ParseRule;
 
 typedef struct {
-    Token curr_token;
-    Token prev_token;
-    bool had_error;
-    bool panicking;
-} Parser;
-
-typedef struct {
     Token var_name;     // The local variable name
     int depth;          // The scope depth of the local variable
     bool is_captured;   // Whether the variable is captured by a closure
@@ -76,14 +69,19 @@ typedef struct Compiler {
     Upvalue upvalues[UINT8_COUNT]; // To mirror the array of ObjUpvalue at runtime
 } Compiler;
 
-// Singleton parser struct
-Parser parser;
-
 Compiler* curr_compiler = NULL;
 
-// The currently being-compiled chunk //TODO remove when done
-// NOTE: this will change later when we need to compile user-defined chunk
-CodeChunk* compiling_chunk;
+#define MAX_NESTED_FUNCTIONS 64 // Should be equals to VM's FRAMES_MAX
+unsigned int n_nested_compiler = 0;
+
+typedef struct {
+    Token curr_token;
+    Token prev_token;
+    bool had_error;
+    bool panicking;
+} Parser;
+
+Parser parser; // Singleton parser struct
 
 //---------------------------------------
 //  PRATT PARSER FUNCTION POINTER TABLE
@@ -104,9 +102,10 @@ static void parse_string_literal(bool can_assign);
 static void parse_int_literal(bool can_assign);
 static void parse_float_literal(bool can_assign);
 static void parse_literal(bool can_assign);
+static void parse_func_literal(bool can_assign);
 // static void parse_and(bool can_assign);
 // static void parse_or(bool can_assign);
-// static void parse_call(bool can_assign);
+static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
 static void parse_declaration();
 static void parse_statement();
@@ -118,7 +117,7 @@ ParseRule parse_rules[] = {
     [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE}, // TODO
     [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE}, // TODO
     [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE}, // TODO
-    [TOKEN_LEFT_PAREN]      = {parse_grouping, NULL, PREC_CALL}, // TODO parse_call
+    [TOKEN_LEFT_PAREN]      = {parse_grouping, parse_call, PREC_CALL},
     [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE}, // TODO
     [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
@@ -144,7 +143,7 @@ ParseRule parse_rules[] = {
     [TOKEN_READ_BOOL]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
-    [TOKEN_UP_TRIANGLE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_UP_TRIANGLE]     = {parse_func_literal, NULL, PREC_NONE},
     [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_DOWN_TRIANGLE]   = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
@@ -273,8 +272,7 @@ static CodeChunk* current_chunk() {
     // The purpose of this function is to encapsulate
     // the notion of the "current chunk" inside this
     // function.
-    // return &curr_compiler->function->chunk;
-    return compiling_chunk;
+    return &curr_compiler->function->chunk;
 }
 
 // Add a byte to the currently being-compiled chunk.
@@ -325,18 +323,12 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
     compiler->func_type = type;
     compiler->local_var_count = 0;
     compiler->scope_depth = 0;
-    compiler->function = new_function_obj(); // Immediately reassign bc garbage collection stuff
+    compiler->function = new_function_obj(); // Immediately reassign bc GC stuff
     curr_compiler = compiler;
 
-    // TODO remove
-    compiling_chunk = malloc(sizeof(Compiler));
-
-    // parse_func_decl() parses the function name's token, then compile_function()
-    //  will call this function to initialize a new compiler struct.
-    // --> So we can set the function name here using the previous token.
+    // TODO anonymous function name or sth else
     if (type != TYPE_TOP_LEVEL) {
-        curr_compiler->function->name = copy_and_create_str_obj(
-            parser.prev_token.start, parser.prev_token.length);
+        curr_compiler->function->name = copy_and_create_str_obj("temp", 4);
     }
 
     // Use the first slot in the call frame for the ObjFunction
@@ -353,6 +345,10 @@ static void init_compiler(Compiler* compiler, FunctionType type) {
         local_vars[0].var_name.length = 4;
     }
 
+    n_nested_compiler++;
+    if (n_nested_compiler > MAX_NESTED_FUNCTIONS) {
+        error_prev_token("Too many nested functions.");
+    }
 }
 
 // Finish compiling the current chunk (and optionally
@@ -372,6 +368,7 @@ static ObjFunction* end_compiler() {
 
     // Restore the enclosing compiler struct as the current one
     curr_compiler = curr_compiler->enclosing;
+    n_nested_compiler--;
 
     return function;
 }
@@ -607,10 +604,10 @@ static void mark_initialized() {
 // Declare a local variable (ie. add it to the list of locals).
 // Skip if it is a global var.
 static void declare_variable() {
-    // Skip if it is a global variable
+    // Skip if it is a global var
     if (curr_compiler->scope_depth == 0) return;
 
-    // Check for any declared variable with the same name
+    // Check for any declared var with the same name
     Token* var_name = &parser.prev_token;
     for (int i = curr_compiler->local_var_count - 1; i >= 0; i--) {
         LocalVar* curr_var = &curr_compiler->local_vars[i];
@@ -620,14 +617,13 @@ static void declare_variable() {
             break;
         }
 
-        // Found a declared variable with the same name
+        // Found a declared var with the same name
         if (identifiers_equal(var_name, &curr_var->var_name)) {
             error_prev_token("Already a variable with this name in this scope.");
         }
     }
 
-    // Record the variable to the array of local variables
-    // of the compiler struct
+    // Record the var to the array of local vars of struct Compiler
     add_local_var(*var_name);
 }
 
@@ -795,12 +791,12 @@ static void parse_print_stmt(bool is_println) {
     emit_byte(is_println ? OP_PRINTLN : OP_PRINT);
 }
 
-// Parse and compile a block statement.
+// Parse and compile a block statement. Assume the left '{' has been
+// consumed. Will consume the right '}'.
 static void parse_block() {
     while (!check_next_token(TOKEN_RIGHT_BRACE) && !check_next_token(TOKEN_EOF)) {
         parse_declaration();
     }
-
     consume_mandatory(TOKEN_RIGHT_BRACE, "Expect '}' after a block.");
 }
 
@@ -1001,19 +997,25 @@ static void parse_statement() {
         parse_expression_stmt();
     }
 }
-/*
+
 // Compile a function into a bytecode chunk and store
 // the resulting ObjFunction in the constant pool.
 // (Because function definitions are literals.)
 static void compile_function(FunctionType type) {
+
+}
+
+// Parse and compile a function literal
+// Grammar: function -> "/\ " IDENTIFIER* "->" (expr | block);
+static void parse_func_literal(bool can_assign) {
+    // The "/\" is already consumed.
     // Start a new compiler struct for the function being compiled
     Compiler func_compiler;
-    init_compiler(&func_compiler, type);
+    init_compiler(&func_compiler, TYPE_FUNCTION);
     begin_scope();
 
     // Compile the parameters
-    consume_mandatory(TOKEN_LEFT_PAREN, "Expect '(' after function name.");
-    if (!check_next_token(TOKEN_RIGHT_PAREN)) {
+    if (!check_next_token(TOKEN_ARROW)) {
         do {
             // Increment the function's arity
             curr_compiler->function->arity++;
@@ -1027,15 +1029,20 @@ static void compile_function(FunctionType type) {
         }
         while (match_next_token(TOKEN_COMMA));
     }
-    consume_mandatory(TOKEN_RIGHT_PAREN, "Expect ')' after parameters.");
+    consume_mandatory(TOKEN_ARROW, "Expect '->' after function parameters.");
 
-    // Compile the function body (as a block stmt)
-    consume_mandatory(TOKEN_LEFT_BRACE, "Expect '{' before function body.");
-    parse_block();
+    // Compile the function body
+    if (match_next_token(TOKEN_LEFT_BRACE)) { // Block as body
+        parse_block();
+    }
+    else { // Expression as body
+        parse_expression();
+        emit_byte(OP_RETURN);
+    }
 
     // Store the resulting ObjFunction in the constant pool of the surrounding function
     ObjFunction* result_func = end_compiler();
-    emit_two_bytes(OP_CLOSURE, add_constant_to_pool(obj_val(result_func)));
+    emit_two_bytes(OP_CLOSURE, add_constant_to_pool(OBJ_VAL(result_func)));
 
     // Emit 2 bytes [is_local][index] for each upvalue used
     for (int i = 0; i < result_func->upvalue_count; i++) {
@@ -1044,28 +1051,17 @@ static void compile_function(FunctionType type) {
     }
 }
 
-// Parse and compile a function declaration
-static void parse_func_decl() {
-    // Store in a global or local variable
-    uint8_t global = parse_var_name("Expect function name.");
-    mark_initialized();
-    compile_function(TYPE_FUNCTION);
-    define_variable(global);
-}
-
 // Parse a list of arguments for a function call
 // and return the number of arguments.
 static uint8_t parse_arg_list() {
     // Assume the left '(' is already consumed
-
     uint8_t arg_count = 0;
     if (!check_next_token(TOKEN_RIGHT_PAREN)) {
         do {
             // Parse one argument and increment the count
             parse_expression();
-            if (arg_count == 255) {
+            if (arg_count == 255)
                 error_prev_token("Can't have more than 255 arguments.");
-            }
             arg_count++;
         } while (match_next_token(TOKEN_COMMA));
     }
@@ -1079,7 +1075,7 @@ static void parse_call(bool can_assign) {
     uint8_t arg_count = parse_arg_list();
     emit_two_bytes(OP_CALL, arg_count);
 }
-
+/*
 // Parse and compile a dot-notation for property access
 // of a Lox instance.
 static void parse_dot(bool can_assign) {
@@ -1123,13 +1119,13 @@ static void parse_declaration() {
 //     THE ONE HEADER FUNCTION
 //----------------------------------
 
-CodeChunk* compile(const char *source_code) {
+ObjFunction* compile(const char *source_code) {
     // Initialize the scanner, which will be used by the parser
     init_scanner(source_code);
 
     // Initialize the parser and compiler
     Compiler compiler;
-    init_compiler(&compiler, TYPE_TOP_LEVEL); // TODO one more line to remove
+    init_compiler(&compiler, TYPE_TOP_LEVEL);
     parser.panicking = false;
     parser.had_error = false;
 
@@ -1143,9 +1139,7 @@ CodeChunk* compile(const char *source_code) {
 
     // End of the compiling process
     ObjFunction* result_func = end_compiler();
-    // return parser.had_error ? NULL : result_func;
-
-    return current_chunk();
+    return parser.had_error ? NULL : result_func;
 }
 
 // void mark_compiler_roots() {

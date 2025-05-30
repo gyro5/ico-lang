@@ -3,7 +3,7 @@
 #include "ico_debug.h"
 #include "ico_chunk.h"
 #include "ico_value.h"
-// #include "ico_object.h"
+#include "ico_object.h"
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -181,24 +181,24 @@ int disass_instruction(CodeChunk* chunk, int offset) {
 
         case OP_CALL:
             return byte_instruction("OP_CALL", chunk, offset);
-/*
+
         case OP_CLOSURE: {
             offset++;
 
             // Print the opcode and the constant index of the wrapped ObjFunction
-            uint8_t constant_idx = chunk->code_chunk[offset++];
+            uint8_t constant_idx = chunk->chunk[offset++];
             printf("%-16s %4d ", "OP_CLOSURE", constant_idx);
 
             // Print the wrapped ObjFunction
-            Value func_val = chunk->const_pool.values[constant_idx];
+            IcoValue func_val = chunk->const_pool.values[constant_idx];
             print_value(func_val);
             printf("\n");
 
             // Print the upvalues
-            ObjFunction* func = as_function(func_val);
+            ObjFunction* func = AS_FUNCTION(func_val);
             for (int i = 0; i < func->upvalue_count; i++) {
-                int is_local = chunk->code_chunk[offset++];
-                int idx = chunk->code_chunk[offset++];
+                int is_local = chunk->chunk[offset++];
+                int idx = chunk->chunk[offset++];
                 printf("%04d      |                     %s %d\n",
                     offset - 2, is_local ? "local" : "upvalue", idx);
             }
@@ -215,30 +215,6 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_CLOSE_UPVALUE:
             return simple_instruction("OP_CLOSE_UPVALUE", offset);
 
-        case OP_CLASS:
-            return constant_instruction("OP_CLASS", chunk, offset);
-
-        case OP_GET_PROPERTY:
-            return constant_instruction("OP_GET_PROPERTY", chunk, offset);
-
-        case OP_SET_PROPERTY:
-            return constant_instruction("OP_SET_PROPERTY", chunk, offset);
-
-        case OP_METHOD:
-            return constant_instruction("OP_METHOD", chunk, offset);
-
-        case OP_INVOKE:
-            return invoke_instruction("OP_INVOKE", chunk, offset);
-
-        case OP_INHERIT:
-            return simple_instruction("OP_INHERIT", offset);
-
-        case OP_GET_SUPER:
-            return constant_instruction("OP_GET_SUPER", chunk, offset);
-
-        case OP_SUPER_INVOKE:
-            return invoke_instruction("OP_SUPER_INVOKE", chunk, offset);
-*/
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

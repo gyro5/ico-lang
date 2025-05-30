@@ -9,18 +9,16 @@
 #define FRAMES_MAX 64 // Maximum call depth
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
 
-// typedef struct {
-//     ObjClosure* closure;
-//     uint8_t* ip;
-//     Value* base_ptr;
-// } CallFrame;
+typedef struct {
+    ObjClosure* closure;
+    uint8_t* ip;
+    IcoValue* base_ptr;
+} CallFrame;
 
 // This struct represents the state of a Lox VM
 typedef struct {
-    uint8_t* ip; // will be replaced
-    CodeChunk* chunk;
-    // CallFrame frames[FRAMES_MAX];       // The VM's call stack (aka the VM's stack)
-    // int frame_count;                    // The current frame count (aka top of call stack)
+    CallFrame frames[FRAMES_MAX];       // The VM's call stack (aka the VM's stack)
+    int frame_count;                    // The current frame count (aka top of call stack)
     IcoValue stack[STACK_MAX];             // The value stack
     IcoValue* stack_top;                   // The value stack pointer (to next slot to-be-used)
     Obj* allocated_objs;                // Linked list of allocated Obj for memory management

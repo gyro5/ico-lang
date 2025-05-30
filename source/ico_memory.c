@@ -2,8 +2,7 @@
 #include <stdio.h>
 
 #include "ico_memory.h"
-// #include "clox_vm.h"
-// #include "clox_compiler.h"
+#include "ico_vm.h"
 
 #define GC_HEAP_GROW_FACTOR 2  // Arbitrarily chosen
 
@@ -46,7 +45,7 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size) {
 
     return new_ptr;
 }
-/*
+
 static void free_one_object(Obj* obj) {
 #ifdef DEBUG_LOG_GC
     printf("%p free type %d\n", (void*)obj, obj->type);
@@ -55,13 +54,13 @@ static void free_one_object(Obj* obj) {
     switch (obj->type) {
         case OBJ_STRING: {
             ObjString* obj_str = (ObjString*)obj;
-            free_array(char, obj_str->chars, obj_str->length);
-            free_ptr(ObjString, obj);
+            FREE_ARRAY(char, obj_str->chars, obj_str->length);
+            FREE(ObjString, obj);
             break;
         }
 
         case OBJ_UPVALUE: {
-            free_ptr(ObjUpValue, obj);
+            FREE(ObjUpValue, obj);
             // Don't free the closed-over value as it can be
             // shared by multiple ObjClosure.
             break;
@@ -70,7 +69,7 @@ static void free_one_object(Obj* obj) {
         case OBJ_FUNCTION: {
             ObjFunction* func = (ObjFunction*)obj;
             free_chunk(&func->chunk);
-            free_ptr(ObjFunction, obj);
+            FREE(ObjFunction, obj);
             break;
         }
 
@@ -79,9 +78,9 @@ static void free_one_object(Obj* obj) {
             // the actual ObjUpvalue objects because they can be
             // shared by multiple closures.
             ObjClosure* closure = (ObjClosure*)obj;
-            free_array(ObjUpValue*, closure->upvalues, closure->upvalue_count);
+            FREE_ARRAY(ObjUpValue*, closure->upvalues, closure->upvalue_count);
 
-            free_ptr(ObjClosure, obj);
+            FREE(ObjClosure, obj);
 
             // Don't free the wrapped ObjFunction as it can be
             // shared by multiple ObjClosure.
@@ -89,26 +88,7 @@ static void free_one_object(Obj* obj) {
         }
 
         case OBJ_NATIVE: {
-            free_ptr(ObjNative, obj);
-            break;
-        }
-
-        case OBJ_CLASS: {
-            ObjClass* class = (ObjClass*)obj;
-            free_table(&class->methods);
-            free_ptr(ObjClass, obj);
-            break;
-        }
-
-        case OBJ_INSTANCE: {
-            ObjInstance* inst = (ObjInstance*)obj;
-            free_table(&inst->fields);
-            free_ptr(ObjInstance, obj);
-            break;
-        }
-
-        case OBJ_BOUND_METHOD: {
-            free_ptr(ObjBoundMethod, obj);
+            FREE(ObjNative, obj);
             break;
         }
     }
@@ -124,9 +104,9 @@ void free_objects() {
         curr_obj = next_obj;
     }
 
-    free(vm.gray_stack);
+    // free(vm.gray_stack); // TODO uncomment
 }
-
+/*
 // GC function: Mark all root objects (for the marking
 // phase of mark-sweep GC)
 static void mark_roots() {

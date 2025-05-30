@@ -58,7 +58,7 @@ bool -> ":)" | ":(" ;
 
 null -> "#" ;
 
-function -> "/\ " IDENTIFIER* "->" expr;
+function -> "/\ " IDENTIFIER* "->" (expr | block);
 
 read -> "<<" | "<?" | "<#" ;
 

@@ -51,16 +51,6 @@ typedef enum {
     OP_GET_UPVALUE,
     OP_SET_UPVALUE,
     OP_CLOSE_UPVALUE,   // [op_close_upvalue]: Hoist the local var at stack top to the heap
-
-    // OOP-related instructions (WILL BE REMOVED)
-    // OP_CLASS,           // [op_class][class_name_const_idx]: Create a new ObjClass
-    // OP_GET_PROPERTY,    // [op_get][property_name_const_idx]
-    // OP_SET_PROPERTY,    // [op_set][field_name_const_idx]
-    // OP_METHOD,          // [op_method][name_const_idx]
-    // OP_INVOKE,          // [op_invoke][name_const_idx][arg_count]: Fast invocation
-    // OP_INHERIT,         // [op_inherit]: Add inheritance to a class
-    // OP_GET_SUPER,       // [op_get_super][name_const_idx]: Get & bind a superclass method
-    // OP_SUPER_INVOKE,    // [op_super_invoke][name_const_idx][arg_count]
 } OpCode;
 
 typedef struct {

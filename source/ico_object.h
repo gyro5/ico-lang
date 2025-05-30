@@ -34,6 +34,7 @@ struct Obj {
 };
 
 #ifdef C23_ENUM_FIXED_TYPE
+// Static checks (aka at compile time) for the sizes of some types
 _Static_assert( sizeof(ObjType) == sizeof(char),
     "C23 enum type is not supported, ObjType is not char.");
 _Static_assert( sizeof(Obj) == 16 * sizeof(char),
@@ -82,6 +83,7 @@ typedef IcoValue (*NativeFn)(int arg_count, IcoValue* args);
 typedef struct {
     Obj obj;
     NativeFn function;
+    // TODO add arity
 } ObjNative;
 
 // Get the obj type tag from a Value

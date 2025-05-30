@@ -19,20 +19,18 @@
 static void reset_stack() {
     // Reset the stack pointer back to index 0 of the stack
     vm.stack_top = vm.stack;
-    // vm.frame_count = 0;
+    vm.frame_count = 0;
 
     // Reset the list of open upvalues each time a top-level
     // "function" is executed (ex. each REPL line)
-    // vm.open_upvalues = NULL;
+    vm.open_upvalues = NULL;
 }
 
 // Peek the Value at distance away from the stack top
 static IcoValue peek(int distance) {
-    // stack_top points to the next slot to be used,
-    // so -1 is the Value at the top of the stack.
-    //
-    // This means distance=0 is the stack top,
-    // distance=1 is the next item, and so on.
+    // stack_top points to the next slot to be used, so -1 is the
+    // Value at the top of the stack. This means distance=0 is the
+    // stack top, distance=1 is the next item, and so on.
     return *(vm.stack_top - 1 - distance);
 }
 
@@ -75,35 +73,35 @@ static void runtime_error(const char* format_str, ...) {
     fputs("\n", stderr);
 
     // Print the stack trace.
-    // for (int i = vm.frame_count - 1; i >= 0; i--) {
-    //     CallFrame* frame = &vm.frames[i];
-    //     ObjFunction* func = frame->closure->function;
+    for (int i = vm.frame_count - 1; i >= 0; i--) {
+        CallFrame* frame = &vm.frames[i];
+        ObjFunction* func = frame->closure->function;
 
-    //     // Calculate the index of the current instruction from
-    //     // the instruction pointer and the start of the code chunk.
-    //     // "- 1" is because ip points to the next instruction.
-    //     size_t bytecode_idx = frame->ip - func->chunk.code_chunk - 1;
-    //     fprintf(stderr, "[line %d] in ", func->chunk.line_nums[bytecode_idx]);
+        // Calculate the index of the current instruction from
+        // the instruction pointer and the start of the code chunk.
+        // "- 1" is because ip points to the next instruction.
+        size_t bytecode_idx = frame->ip - func->chunk.chunk - 1;
+        fprintf(stderr, "[line %d] in ", func->chunk.line_nums[bytecode_idx]);
 
-    //     // Print the function name
-    //     if (func->name != NULL) {
-    //         fprintf(stderr, "%s()\n", func->name->chars);
-    //     }
-    //     else {
-    //         fprintf(stderr, "script\n");
-    //     }
-    // }
+        // Print the function name
+        if (func->name != NULL) {
+            fprintf(stderr, "%s()\n", func->name->chars);
+        }
+        else {
+            fprintf(stderr, "script\n");
+        }
+    }
 
     reset_stack(); // For the next REPL run
 }
-/*
+
 // Define a new native function and add it and its name
 // as value and key to the hash table of global variables.
 static void define_native_func(const char* name, NativeFn func) {
     // Need to push then pop immediately due to garbage collection
-    push(obj_val(copy_and_create_str_obj(name, (int)strlen(name))));
-    push(obj_val(new_native_func_obj(func)));
-    table_set(&vm.globals, as_string(vm.stack[0]), vm.stack[1]);
+    push(OBJ_VAL(copy_and_create_str_obj(name, (int)strlen(name))));
+    push(OBJ_VAL(new_native_func_obj(func)));
+    table_set(&vm.globals, vm.stack[0], vm.stack[1]);
     pop();
     pop();
 }
@@ -126,7 +124,7 @@ static bool call_helper(ObjClosure* closure, int arg_count) {
     // Set up a new call frame
     CallFrame* new_frame = &vm.frames[vm.frame_count++];
     new_frame->closure = closure;
-    new_frame->ip = closure->function->chunk.code_chunk;
+    new_frame->ip = closure->function->chunk.chunk;
     new_frame->base_ptr = vm.stack_top - arg_count - 1; // starts at the callee obj on the stack
 
     return true;
@@ -134,17 +132,18 @@ static bool call_helper(ObjClosure* closure, int arg_count) {
 
 // Start a call on a Value by setting up a new CallFrame.
 // Return false if the value is not callable.
-static bool call_value(Value callee, int arg_count) {
-    if (is_obj(callee)) {
-        switch (obj_type(callee)) {
+static bool call_value(IcoValue callee, int arg_count) {
+    if (IS_OBJ(callee)) {
+        switch (OBJ_TYPE(callee)) {
             case OBJ_CLOSURE:
-                return call_helper(as_closure(callee), arg_count);
+                return call_helper(AS_CLOSURE(callee), arg_count);
 
             case OBJ_NATIVE: {
-                NativeFn c_func = as_native_c_func(callee);
+                NativeFn c_func = AS_NATIVE_C_FUNC(callee);
 
                 // Call the C function
-                Value ret_val = c_func(arg_count, vm.stack_top - arg_count);
+                IcoValue ret_val = c_func(arg_count, vm.stack_top - arg_count);
+                // TODO check for error value (aka mechanism to error from native)
 
                 // Discard the "call frame" (which only has arguments)
                 // and push the return value back
@@ -159,15 +158,15 @@ static bool call_value(Value callee, int arg_count) {
         }
     }
 
-    // Not even an Obj
-    runtime_error("Can only call functions and classes.");
+    // Non-Obj or non-callable Objs.
+    runtime_error("Can only call functions.");
     return false;
 }
 
 // Capture a local variable (of the enclosing function) into an
 // ObjUpvalue. Will reuse the ObjUpvalue if this local var has
 // been captured before.
-static ObjUpValue* capture_upvalue(Value* upper_local) {
+static ObjUpValue* capture_upvalue(IcoValue* upper_local) {
     // Try to find an existing upvalue that capture this local var
     ObjUpValue* prev = NULL;
     ObjUpValue* curr = vm.open_upvalues;
@@ -198,7 +197,7 @@ static ObjUpValue* capture_upvalue(Value* upper_local) {
 
 // Close (Hoist to heap) all upvalues in the list of open upvalues
 // from the stack top to the passed stack slot "last".
-static void close_all_upvalues_from(Value* last) {
+static void close_all_upvalues_from(IcoValue* last) {
     while (vm.open_upvalues != NULL && vm.open_upvalues->location >= last) {
         ObjUpValue* curr = vm.open_upvalues;
 
@@ -209,17 +208,13 @@ static void close_all_upvalues_from(Value* last) {
     }
 }
 
-*/
-
-
 /*************************************
     THE MAIN VM EXECUTION FUNCTION
 **************************************/
 
 // Run the current bytecode chunk in the VM
 static InterpretResult vm_run() {
-    // CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
-    VM* curr_frame = &vm;
+    CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
 
 #ifdef  DEBUG_TRACE_EXECUTION
     printf("\n============ Execution Trace =============\n");
@@ -229,10 +224,8 @@ static InterpretResult vm_run() {
 #define READ_NEXT_BYTE() (*curr_frame->ip++)
 
 // Get the constant indexed by the next byte
-// #define READ_CONSTANT() "\"
-//     (curr_frame->closure->function->chunk.const_pool.values[read_next_byte()])
 #define READ_CONSTANT() \
-    (curr_frame->chunk->const_pool.values[READ_NEXT_BYTE()])
+    (curr_frame->closure->function->chunk.const_pool.values[READ_NEXT_BYTE()])
 
 // Get the next 2 bytes as an unsigned short
 #define READ_SHORT() \
@@ -286,10 +279,8 @@ static InterpretResult vm_run() {
 
         // If in debug mode, print the next instruction to be executed.
         // disass_instruction() needs an int offset, hence the pointer math
-        // disass_instruction(&curr_frame->closure->function->chunk,
-        //     (int)(curr_frame->ip - curr_frame->closure->function->chunk.code_chunk));
-        disass_instruction(curr_frame->chunk,
-            (int)(curr_frame->ip - curr_frame->chunk->chunk));
+        disass_instruction(&curr_frame->closure->function->chunk,
+            (int)(curr_frame->ip - curr_frame->closure->function->chunk.chunk));
 
         printf("\n");
 #endif
@@ -310,6 +301,28 @@ static InterpretResult vm_run() {
         ************************/
         uint8_t instruction;
         VM_DISPATCH (instruction = READ_NEXT_BYTE()) {
+            VM_CASE(OP_RETURN) {
+                IcoValue ret_val = pop();
+
+                // Pop the call frame from the call stack
+                vm.frame_count--;
+
+                // Close all open upvalues of the current function
+                close_all_upvalues_from(curr_frame->base_ptr);
+
+                // No more call frame --> Done!
+                if (vm.frame_count == 0) {
+                    pop(); // Pop the top-level ObjFunction
+                    return INTERPRET_OK;
+                }
+
+                // Otherwise, return to the caller
+                vm.stack_top = curr_frame->base_ptr;
+                push(ret_val);
+                curr_frame = &vm.frames[vm.frame_count - 1];
+                VM_BREAK;
+            }
+
             VM_CASE(OP_CONSTANT) {
                 // Quick note: The {} is required because before C23,
                 // declaring a variable right after a label (which is
@@ -433,29 +446,6 @@ static InterpretResult vm_run() {
                 VM_BREAK;
             }
 
-            VM_CASE(OP_RETURN) {
-                // Value ret_val = pop();
-
-                // // Pop the call frame from the call stack
-                // vm.frame_count--;
-
-                // // Close all open upvalues of the current function
-                // close_all_upvalues_from(curr_frame->base_ptr);
-
-                // // No more call frame --> Done!
-                // if (vm.frame_count == 0) {
-                //     pop(); // Pop the top-level ObjFunction
-                //     return INTERPRET_OK;
-                // }
-
-                // // Otherwise, return to the caller
-                // vm.stack_top = curr_frame->base_ptr;
-                // push(ret_val);
-                // curr_frame = &vm.frames[vm.frame_count - 1];
-                return INTERPRET_OK;
-                VM_BREAK;
-            }
-
             VM_CASE(OP_PRINT) {
                 // The expression has been evaluated by the preceeding
                 // bytecodes and pushed on the VM's stack.
@@ -514,43 +504,43 @@ static InterpretResult vm_run() {
 
                 VM_BREAK;
             }
-/*
-            case OP_GET_LOCAL: {
+
+            VM_CASE(OP_GET_LOCAL) {
                 // Get the index of the local variable on the VM stack
                 uint8_t stack_index = READ_NEXT_BYTE();
                 push(curr_frame->base_ptr[stack_index]);
-                break;
+                VM_BREAK;
             }
 
-            case OP_SET_LOCAL: {
+            VM_CASE(OP_SET_LOCAL) {
                 uint8_t stack_index = READ_NEXT_BYTE();
                 curr_frame->base_ptr[stack_index] = peek(0);
                 // Don't pop, only peek because assignment is an expr
-                break;
+                VM_BREAK;
             }
-/*
-            case OP_JUMP_IF_FALSE: {
-                uint16_t jump_dist = read_short();
+
+            VM_CASE(OP_JUMP_IF_FALSE) {
+                uint16_t jump_dist = READ_SHORT();
                 if (is_falsey(peek(0))) {
                     curr_frame->ip += jump_dist;
                 }
-                break;
+                VM_BREAK;
             }
 
-            case OP_JUMP: {
-                uint16_t jump_dist = read_short();
+            VM_CASE(OP_JUMP) {
+                uint16_t jump_dist = READ_SHORT();
                 curr_frame->ip += jump_dist;
-                break;
+                VM_BREAK;
             }
 
-            case OP_LOOP: {
-                uint16_t jump_dist = read_short();
+            VM_CASE(OP_LOOP) {
+                uint16_t jump_dist = READ_SHORT();
                 curr_frame->ip -= jump_dist; // jump back
-                break;
+                VM_BREAK;
             }
 
-            case OP_CALL: {
-                int arg_count = read_next_byte();
+            VM_CASE(OP_CALL) {
+                int arg_count = READ_NEXT_BYTE();
 
                 // stack_peek(arg_count) will be the callee value
                 if (!call_value(peek(arg_count), arg_count)) {
@@ -563,19 +553,19 @@ static InterpretResult vm_run() {
                 // After this, the VM will use the latest call frame
                 // for the code chunk and the ip to be executed next.
 
-                break;
+                VM_BREAK;
             }
 
-            case OP_CLOSURE: {
+            VM_CASE(OP_CLOSURE) {
                 // Create the closure object
-                ObjFunction* function = as_function(read_constant());
+                ObjFunction* function = AS_FUNCTION(READ_CONSTANT());
                 ObjClosure* closure = new_closure_obj(function);
-                push(obj_val(closure));
+                push(OBJ_VAL(closure));
 
                 // Populate the array of upvalue pointers of the closure
                 for (int i = 0; i < closure->upvalue_count; i++) {
-                    uint8_t is_local = read_next_byte();
-                    uint8_t idx = read_next_byte();
+                    uint8_t is_local = READ_NEXT_BYTE();
+                    uint8_t idx = READ_NEXT_BYTE();
 
                     if (is_local) { // Local var of the enclosing function
                         closure->upvalues[i] = capture_upvalue(curr_frame->base_ptr + idx);
@@ -590,31 +580,30 @@ static InterpretResult vm_run() {
                     }
                 }
 
-                break;
+                VM_BREAK;
             }
 
-            case OP_GET_UPVALUE: {
-                uint8_t upvalue_idx = read_next_byte();
+            VM_CASE(OP_GET_UPVALUE) {
+                uint8_t upvalue_idx = READ_NEXT_BYTE();
                 push(*curr_frame->closure->upvalues[upvalue_idx]->location);
-                break;
+                VM_BREAK;
             }
 
-            case OP_SET_UPVALUE: {
-                uint8_t upvalue_idx = read_next_byte();
+            VM_CASE(OP_SET_UPVALUE) {
+                uint8_t upvalue_idx = READ_NEXT_BYTE();
                 *curr_frame->closure->upvalues[upvalue_idx]->location = peek(0);
-                break;
+                VM_BREAK;
             }
 
-            case OP_CLOSE_UPVALUE: {
+            VM_CASE(OP_CLOSE_UPVALUE) {
                 close_all_upvalues_from(vm.stack_top - 1); // Only 1 value at stack top
                 pop();
-                break;
+                VM_BREAK;
             }
-                */
         }
     }
 
-// Because these macros are only used in this function. TODO
+// Because these macros are only used in this function.
 #undef READ_NEXT_BYTE
 #undef READ_CONSTANT
 #undef READ_STRING
@@ -631,7 +620,7 @@ static InterpretResult vm_run() {
 //------------------------------
 
 static IcoValue clock_native(int arg_count, IcoValue* args) {
-    return INT_VAL(clock() / CLOCKS_PER_SEC);
+    return FLOAT_VAL((double)clock() / CLOCKS_PER_SEC);
 }
 
 //------------------------------
@@ -642,13 +631,12 @@ static IcoValue clock_native(int arg_count, IcoValue* args) {
 VM vm;
 
 void init_vm() {
+    // This function will be used by main.c
+
     reset_stack();
 
-    vm.ip = NULL;
-    vm.chunk = NULL;
-
-    // // No allocated Objs yet
-    // vm.allocated_objs = NULL;
+    // No allocated Objs yet
+    vm.allocated_objs = NULL;
 
     // // Initialize the gray stack (for GC)
     // vm.gray_count = 0;
@@ -659,38 +647,32 @@ void init_vm() {
     // vm.bytes_allocated = 0;
     // vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
 
-    // // Initialize the hash tables
+    // Initialize the hash tables
     init_table(&vm.globals); // table of global variables
     init_table(&vm.strings); // table for string interning
 
-    // // Add native functions
-    // define_native_func("clock", clock_native);
+    // Add native functions
+    define_native_func("clock", clock_native);
 }
 
 void free_vm() {
     free_table(&vm.globals);
     free_table(&vm.strings);
-    // free_objects();
+    free_objects();
 }
 
 InterpretResult vm_interpret(const char *source_code) {
     // // Compile the source code and get the ObjFunction for top-level code
-    // ObjFunction* top_level_func = compile(source_code);
-    // if (top_level_func == NULL) return INTERPRET_COMPILE_ERROR;
+    ObjFunction* top_level_func = compile(source_code);
+    if (top_level_func == NULL) return INTERPRET_COMPILE_ERROR;
 
-    // // Set up the top-level "function" as the first call
-    // push(obj_val(top_level_func));
-    // ObjClosure* top_level_closure = new_closure_obj(top_level_func);
-    // pop();
-    // push(obj_val(top_level_closure));
-    // call_helper(top_level_closure, 0);
+    // Set up the top-level "function" as the first call
+    push(OBJ_VAL(top_level_func));
+    ObjClosure* top_level_closure = new_closure_obj(top_level_func);
+    pop();
+    push(OBJ_VAL(top_level_closure));
+    call_helper(top_level_closure, 0);
 
-    init_vm();
-
-    vm.chunk = compile(source_code);
-    vm.ip = vm.chunk->chunk;
-
-    // Run and return the result
     return vm_run();
 }
 

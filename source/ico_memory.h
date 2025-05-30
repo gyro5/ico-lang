@@ -27,11 +27,10 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size);
 // Free a block pointed to by "ptr" of type "type"
 #define FREE(type, ptr) reallocate(ptr, sizeof(type), 0)
 
-/*
-// Free all remaining heap-allocated objects and data owned
-// by the VM.
-void free_objects();
 
+// Free all remaining heap-allocated objects and data owned by the VM
+void free_objects();
+/*
 // GC function: Mark one Obj-type object as gray
 void mark_object(Obj* obj);
 
