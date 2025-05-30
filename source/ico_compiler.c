@@ -107,6 +107,7 @@ static void parse_func_literal(bool can_assign);
 // static void parse_or(bool can_assign);
 static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
+static void parse_down_triangle(bool can_assign);
 static void parse_declaration();
 static void parse_statement();
 
@@ -145,7 +146,7 @@ ParseRule parse_rules[] = {
     [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_UP_TRIANGLE]     = {parse_func_literal, NULL, PREC_NONE},
     [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_DOWN_TRIANGLE]   = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_DOWN_TRIANGLE]   = {parse_down_triangle, NULL, PREC_NONE},
     [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
     [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_GREATER]         = {NULL, parse_binary, PREC_COMPARISON},
@@ -336,12 +337,12 @@ static void init_compiler(Compiler* compiler, FunctionType type, const char* nam
     local_vars[0].depth = 0;
     local_vars[0].is_captured = false;
     if (type == TYPE_FUNCTION) {
-        local_vars[0].var_name.start = ""; // empty name so that user can't overwrite
-        local_vars[0].var_name.length = 0;
+        local_vars[0].var_name.start = "\\/"; // For recursion in anonymous function
+        local_vars[0].var_name.length = 2;
     }
     else {
-        local_vars[0].var_name.start = "this"; // TODO fix
-        local_vars[0].var_name.length = 4;
+        local_vars[0].var_name.start = "";
+        local_vars[0].var_name.length = 0;
     }
 
     n_nested_compiler++;
@@ -1026,6 +1027,11 @@ static void compile_function(FunctionType type, const char* name, int length) {
 static void parse_func_literal(bool can_assign) {
     // The "/\" is already consumed.
     compile_function(TYPE_FUNCTION, "/\\", 2);
+}
+
+// Parse and compile a '\/' symbol
+static void parse_down_triangle(bool can_assign) {
+    parse_variable(false);
 }
 
 // Parse a list of arguments for a function call
