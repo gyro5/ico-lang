@@ -5,15 +5,21 @@
 #include <stddef.h>  // For "size_t" and "NULL"
 #include <stdint.h>  // For sized ints
 
-// GCC still supports this even when "-std=c23" is not set
-#define C23_ENUM_FIXED_TYPE
-
 // ANSI colors
 #define COLOR_RED     "\e[31m"
 #define COLOR_GREEN   "\e[32m"
 #define COLOR_BLUE    "\e[34m"
-#define COLOR_RESET   "\e[0m"
 #define COLOR_BOLD    "\e[1m"
+#define COLOR_RESET   "\e[0m"
+
+#define UINT8_COUNT (UINT8_MAX + 1)
+
+// GCC still supports this even when "-std=c23" is not set
+#define C23_ENUM_FIXED_TYPE
+
+// Switch dispatch is enabled by default when compiling in ANSI C
+// (release_ansi) but it can be enabled manually here.
+// #define SWITCH_DISPATCH
 
 #ifdef DEBUG // Will be enabled at the compile command
 // #define DEBUG_PRINT_BYTECODE
@@ -22,7 +28,5 @@
 // #define DEBUG_LOG_GC
 #define DEBUG_PRINT_TOKEN
 #endif
-
-#define UINT8_COUNT (UINT8_MAX + 1)
 
 #endif // !ICO_COMMON_H

@@ -294,37 +294,47 @@ static InterpretResult vm_run() {
         printf("\n");
 #endif
 
+#ifdef SWITCH_DISPATCH
+// Enabled when compiling as ANSI C, or manually in ico_common.h
+#define VM_DISPATCH(ins)    switch(ins)
+#define VM_CASE(opcode)     case opcode:
+#define VM_BREAK            break
+#else
+// Use computed gotos by default
+#include "ico_vm_goto.h"
+#endif
+
         /***********************
             OPCODE SWITCHING
         ************************/
-        uint8_t instruction;
+        uint8_t instruction = READ_NEXT_BYTE();
             // printf("%d", instruction);
-        switch (instruction= READ_NEXT_BYTE()) {
-            case OP_CONSTANT: {
+        VM_DISPATCH (instruction) {
+            VM_CASE(OP_CONSTANT) {
                 // Quick note: The {} is required because before C23,
                 // declaring a variable right after a label (which is
                 // "case OP_CONSTANT:" in this case) is not allowed.
                 IcoValue constant = READ_CONSTANT();
                 push(constant);
-                break;
+                VM_BREAK;
             }
 
-            case OP_NULL: {
+            VM_CASE(OP_NULL) {
                 push(NULL_VAL);
-                break;
+                VM_BREAK;
             }
 
-            case OP_TRUE: {
+            VM_CASE(OP_TRUE) {
                 push(BOOL_VAL(true));
-                break;
+                VM_BREAK;
             }
 
-            case OP_FALSE: {
+            VM_CASE(OP_FALSE) {
                 push(BOOL_VAL(false));
-                break;
+                VM_BREAK;
             }
 
-            case OP_NEGATE: {
+            VM_CASE(OP_NEGATE) {
                 IcoValue v = peek(0);
 
                 // Perform direct negation instead of pop then push
@@ -338,10 +348,10 @@ static InterpretResult vm_run() {
                     runtime_error("Operand must be an int or a float.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
-                break;
+                VM_BREAK;
             }
 
-            case OP_ADD: { // OP_ADD also handles string concatenation
+            VM_CASE(OP_ADD) { // OP_ADD also handles string concatenation
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (IS_STRING(va) && IS_STRING(vb)) {
@@ -355,13 +365,20 @@ static InterpretResult vm_run() {
                     runtime_error("Operands must be 2 numbers or 2 strings.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
-                break;
+                VM_BREAK;
             }
 
-            case OP_SUBTRACT: BINARY_OP(FLOAT_VAL, INT_VAL, -); break;
-            case OP_MULTIPLY: BINARY_OP(FLOAT_VAL, INT_VAL, *); break;
+            VM_CASE(OP_SUBTRACT) {
+                BINARY_OP(FLOAT_VAL, INT_VAL, -);
+                VM_BREAK;
+            }
 
-            case OP_DIVIDE: {
+            VM_CASE(OP_MULTIPLY) {
+                BINARY_OP(FLOAT_VAL, INT_VAL, *);
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_DIVIDE) {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_NUMBER(vb) || !IS_NUMBER(va)) {
@@ -374,10 +391,10 @@ static InterpretResult vm_run() {
                 }
                 vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, FLOAT_VAL, INT_VAL, /);
                 pop();
-                break;
+                VM_BREAK;
             }
 
-            case OP_MODULO: {
+            VM_CASE(OP_MODULO) {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_INT(vb) || !IS_INT(va)) {
@@ -391,23 +408,32 @@ static InterpretResult vm_run() {
                 }
                 vm.stack_top[-2] = INT_VAL(AS_INT(va) % b);
                 pop();
-                break;
+                VM_BREAK;
             }
 
-            case OP_NOT:
+            VM_CASE(OP_NOT) {
                 // Direct assignment instead of pop then push
                 vm.stack_top[-1] = BOOL_VAL(is_falsey(vm.stack_top[-1]));
-                break;
+                VM_BREAK;
+            }
 
-            case OP_EQUAL:
+            VM_CASE(OP_EQUAL) {
                 // Stack LIFO -----------> b      a
                 push(BOOL_VAL(values_equal(pop(), pop())));
-                break;
+                VM_BREAK;
+            }
 
-            case OP_GREATER: BINARY_OP(BOOL_VAL, BOOL_VAL, >); break;
-            case OP_LESS:    BINARY_OP(BOOL_VAL, BOOL_VAL, <); break;
+            VM_CASE(OP_GREATER) {
+                BINARY_OP(BOOL_VAL, BOOL_VAL, >);
+                VM_BREAK;
+            }
 
-            case OP_RETURN: {
+            VM_CASE(OP_LESS) {
+                BINARY_OP(BOOL_VAL, BOOL_VAL, <);
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_RETURN) {
                 // Value ret_val = pop();
 
                 // // Pop the call frame from the call stack
@@ -427,23 +453,28 @@ static InterpretResult vm_run() {
                 // push(ret_val);
                 // curr_frame = &vm.frames[vm.frame_count - 1];
                 return INTERPRET_OK;
-                break;
+                VM_BREAK;
             }
 
-            case OP_PRINT:
+            VM_CASE(OP_PRINT) {
                 // The expression has been evaluated by the preceeding
                 // bytecodes and pushed on the VM's stack.
                 print_value(pop());
-                break;
+                VM_BREAK;
+            }
 
-            case OP_PRINTLN:
+            VM_CASE(OP_PRINTLN) {
                 print_value(pop());
                 printf("\n");
-                break;
+                VM_BREAK;
+            }
 
-            case OP_POP: pop(); break;
+            VM_CASE(OP_POP) {
+                pop();
+                VM_BREAK;
+            }
 
-            case OP_DEFINE_GLOBAL: {
+            VM_CASE(OP_DEFINE_GLOBAL) {
                 // Insert the global variable and its initialized value
                 // into the globals hash table.
                 IcoValue var_name = READ_CONSTANT();
@@ -452,10 +483,10 @@ static InterpretResult vm_run() {
                 // Need to pop AFTER the value is added to the globals table
                 // so that GC doesn't collect it.
                 pop();
-                break;
+                VM_BREAK;
             }
 
-            case OP_GET_GLOBAL: {
+            VM_CASE(OP_GET_GLOBAL) {
                 IcoValue var_name = READ_CONSTANT();
                 IcoValue value;
 
@@ -467,10 +498,10 @@ static InterpretResult vm_run() {
 
                 // Found the variable -> Push the value to the VM stack
                 push(value);
-                break;
+                VM_BREAK;
             }
 
-            case OP_SET_GLOBAL: {
+            VM_CASE(OP_SET_GLOBAL) {
                 IcoValue var_name = READ_CONSTANT();
 
                 // Try to set the variable value
@@ -481,7 +512,7 @@ static InterpretResult vm_run() {
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
-                break;
+                VM_BREAK;
             }
 /*
             case OP_GET_LOCAL: {
@@ -580,11 +611,6 @@ static InterpretResult vm_run() {
                 break;
             }
                 */
-
-            default: { // For dev only, will be unreachable
-                printf("Unsupported opcode!");
-                break;
-            }
         }
     }
 
