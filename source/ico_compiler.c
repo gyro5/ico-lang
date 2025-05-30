@@ -947,7 +947,7 @@ static void parse_while_stmt() {
     patch_jump(exit_jump_offset);
     emit_byte(OP_POP); // pop the loop condition
 }
-
+*/
 // Parse and compile a return statement
 static void parse_return_stmt() {
     // Can't return from top-level code
@@ -960,17 +960,12 @@ static void parse_return_stmt() {
         emit_op_return();
     }
     else {
-        // Can't return another expression from initializer
-        if (curr_compiler->func_type == TYPE_INIT) {
-            error_prev_token("Can't return a value from an initializer.");
-        }
-
         parse_expression(); // the return value expr
         consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after return value.");
         emit_byte(OP_RETURN);
     }
 }
-*/
+
 // Parse and compile a statement-level statement.
 static void parse_statement() {
     if (match_next_token(TOKEN_2_GREATER)) {
@@ -985,9 +980,9 @@ static void parse_statement() {
     // else if (match_next_token(TOKEN_WHILE)) {
     //     parse_while_stmt();
     // }
-    // else if (match_next_token(TOKEN_RETURN)) {
-    //     parse_return_stmt();
-    // }
+    else if (match_next_token(TOKEN_RETURN)) {
+        parse_return_stmt();
+    }
     else if (match_next_token(TOKEN_LEFT_BRACE)) {
         begin_scope();
         parse_block();
@@ -1102,7 +1097,7 @@ static void parse_dot(bool can_assign) {
 */
 
 // Parse and compile a declaration-level statement.
-// Grammar: declaration -> classDecl | funDecl | var Decl | statement.
+// Grammar: decl -> var_decl | stmt;
 static void parse_declaration() {
     if (match_next_token(TOKEN_VAR)) {
         parse_var_decl();
