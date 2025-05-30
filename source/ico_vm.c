@@ -216,21 +216,25 @@ static void close_all_upvalues_from(IcoValue* last) {
 static InterpretResult vm_run() {
     CallFrame* curr_frame = &vm.frames[vm.frame_count - 1];
 
+    /* Use a "register" local variable to optimize getting the next opcode.
+    IMPORTANT: Need to save the ip back to the call frame when there
+    is a call or a runtime error (as runtime_error uses frame.ip to
+    report errors). */
+    register uint8_t* ip = curr_frame->ip;
+
 #ifdef  DEBUG_TRACE_EXECUTION
     printf("\n============ Execution Trace =============\n");
 #endif
 
 // Return the next byte in the code chunk, then increment ip
-#define READ_NEXT_BYTE() (*curr_frame->ip++)
+#define READ_NEXT_BYTE() (*ip++)
 
 // Get the constant indexed by the next byte
 #define READ_CONSTANT() \
     (curr_frame->closure->function->chunk.const_pool.values[READ_NEXT_BYTE()])
 
 // Get the next 2 bytes as an unsigned short
-#define READ_SHORT() \
-    (curr_frame->ip += 2, \
-    (uint16_t)((curr_frame->ip[-2] << 8) | curr_frame->ip[-1]))
+#define READ_SHORT() (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 
 // Same as read_constant() but also convert to ObjString*
 #define READ_STRING() AS_STRING(READ_CONSTANT())
@@ -258,6 +262,7 @@ static InterpretResult vm_run() {
     IcoValue vb = peek(0); \
     IcoValue va = peek(1); \
     if (!IS_NUMBER(vb) || !IS_NUMBER(va)) { \
+        curr_frame->ip = ip; \
         runtime_error("Operands must be 2 numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
     } \
@@ -280,7 +285,7 @@ static InterpretResult vm_run() {
         // If in debug mode, print the next instruction to be executed.
         // disass_instruction() needs an int offset, hence the pointer math
         disass_instruction(&curr_frame->closure->function->chunk,
-            (int)(curr_frame->ip - curr_frame->closure->function->chunk.chunk));
+            (int)(ip - curr_frame->closure->function->chunk.chunk));
 
         printf("\n");
 #endif
@@ -320,6 +325,7 @@ static InterpretResult vm_run() {
                 vm.stack_top = curr_frame->base_ptr;
                 push(ret_val);
                 curr_frame = &vm.frames[vm.frame_count - 1];
+                ip = curr_frame->ip;
                 VM_BREAK;
             }
 
@@ -358,6 +364,7 @@ static InterpretResult vm_run() {
                     vm.stack_top[-1].as.num_float = -AS_FLOAT(v);
                 }
                 else {
+                    curr_frame->ip = ip;
                     runtime_error("Operand must be an int or a float.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -375,6 +382,7 @@ static InterpretResult vm_run() {
                     pop();
                 }
                 else {
+                    curr_frame->ip = ip;
                     runtime_error("Operands must be 2 numbers or 2 strings.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -395,10 +403,12 @@ static InterpretResult vm_run() {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_NUMBER(vb) || !IS_NUMBER(va)) {
+                    curr_frame->ip = ip;
                     runtime_error("Operands must be 2 numbers.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 if (IS_INT(va) && IS_INT(vb) && AS_INT(vb) == 0) {
+                    curr_frame->ip = ip;
                     runtime_error("Can't do integer division by 0.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -411,11 +421,13 @@ static InterpretResult vm_run() {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_INT(vb) || !IS_INT(va)) {
+                    curr_frame->ip = ip;
                     runtime_error("Operands for modulo must be 2 integers.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 long b = AS_INT(vb);
                 if (b == 0) {
+                    curr_frame->ip = ip;
                     runtime_error("Can't do integer modulo by 0.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -482,6 +494,7 @@ static InterpretResult vm_run() {
 
                 // Try to access the variable with this name
                 if (!table_get(&vm.globals, var_name, &value)) {
+                    curr_frame->ip = ip;
                     runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -498,6 +511,7 @@ static InterpretResult vm_run() {
                 if (table_set(&vm.globals, var_name, peek((0)))) {
                     // If variable not already declared
                     table_delete(&vm.globals, var_name);
+                    curr_frame->ip = ip;
                     runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
@@ -522,25 +536,26 @@ static InterpretResult vm_run() {
             VM_CASE(OP_JUMP_IF_FALSE) {
                 uint16_t jump_dist = READ_SHORT();
                 if (is_falsey(peek(0))) {
-                    curr_frame->ip += jump_dist;
+                    ip += jump_dist;
                 }
                 VM_BREAK;
             }
 
             VM_CASE(OP_JUMP) {
                 uint16_t jump_dist = READ_SHORT();
-                curr_frame->ip += jump_dist;
+                ip += jump_dist;
                 VM_BREAK;
             }
 
             VM_CASE(OP_LOOP) {
                 uint16_t jump_dist = READ_SHORT();
-                curr_frame->ip -= jump_dist; // jump back
+                ip -= jump_dist; // jump back
                 VM_BREAK;
             }
 
             VM_CASE(OP_CALL) {
                 int arg_count = READ_NEXT_BYTE();
+                curr_frame->ip = ip; // IMPORTANT: save ip back to frame
 
                 // stack_peek(arg_count) will be the callee value
                 if (!call_value(peek(arg_count), arg_count)) {
@@ -548,8 +563,9 @@ static InterpretResult vm_run() {
                 }
 
                 // Successful call will add a new frame to the call stack
-                // so we need to update the current frame to it.
+                // so we need to update curr_frame and ip.
                 curr_frame = &vm.frames[vm.frame_count - 1];
+                ip = curr_frame->ip;
                 // After this, the VM will use the latest call frame
                 // for the code chunk and the ip to be executed next.
 
