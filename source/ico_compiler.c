@@ -103,8 +103,8 @@ static void parse_int_literal(bool can_assign);
 static void parse_float_literal(bool can_assign);
 static void parse_literal(bool can_assign);
 static void parse_func_literal(bool can_assign);
-// static void parse_and(bool can_assign);
-// static void parse_or(bool can_assign);
+static void parse_and(bool can_assign);
+static void parse_or(bool can_assign);
 static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
 static void parse_down_triangle(bool can_assign);
@@ -116,17 +116,17 @@ ParseRule parse_rules[] = {
     [TOKEN_VAR]             = {NULL, NULL, PREC_NONE},
     [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE},
     [TOKEN_QUESTION]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE}, // TODO
-    [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE}, // TODO
-    [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE},
+    [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE},
+    [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_PAREN]      = {parse_grouping, parse_call, PREC_CALL},
-    [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
-    [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE}, // TODO
-    [TOKEN_OR]              = {NULL, NULL, PREC_OR}, // TODO parse_or
-    [TOKEN_AND]             = {NULL, NULL, PREC_AND}, // TODO parse_and
-    [TOKEN_XOR]             = {NULL, NULL, PREC_OR}, // TODO // TODO
+    [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE},
+    [TOKEN_OR]              = {NULL, parse_or, PREC_OR},
+    [TOKEN_AND]             = {NULL, parse_and, PREC_AND},
+    [TOKEN_XOR]             = {NULL, parse_binary, PREC_OR}, // Mo short circuit for XOR
     [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM},
     [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
@@ -135,12 +135,12 @@ ParseRule parse_rules[] = {
     [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_BANG]            = {parse_unary, NULL, PREC_NONE},
     [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
-    [TOKEN_COLON]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_COLON]           = {NULL, NULL, PREC_NONE},
     [TOKEN_TRUE]            = {parse_literal, NULL, PREC_NONE},
     [TOKEN_FALSE]           = {parse_literal, NULL, PREC_NONE},
     [TOKEN_LESS]            = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_RETURN]          = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_RETURN]          = {NULL, NULL, PREC_NONE},
     [TOKEN_READ]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_READ_BOOL]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
@@ -149,19 +149,19 @@ ParseRule parse_rules[] = {
     [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE},
     [TOKEN_DOWN_TRIANGLE]   = {parse_down_triangle, NULL, PREC_NONE},
     [TOKEN_MINUS]           = {parse_unary, parse_binary, PREC_TERM},
-    [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_ARROW]           = {NULL, NULL, PREC_NONE},
     [TOKEN_GREATER]         = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON},
-    [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE},
+    [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_SQUARE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_TABLE]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_IDENTIFIER]      = {parse_variable, NULL, PREC_NONE},
     [TOKEN_INT]             = {parse_int_literal, NULL, PREC_NONE},
     [TOKEN_FLOAT]           = {parse_float_literal, NULL, PREC_NONE},
     [TOKEN_STRING]          = {parse_string_literal, NULL, PREC_NONE},
-    [TOKEN_ERROR]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_EOF]             = {NULL, NULL, PREC_NONE}, // TODO
+    [TOKEN_ERROR]           = {NULL, NULL, PREC_NONE},
+    [TOKEN_EOF]             = {NULL, NULL, PREC_NONE},
 };
 
 //------------------------------
@@ -560,6 +560,9 @@ static void parse_binary(bool can_assign) {
         case TOKEN_GREATER_EQUAL: emit_two_bytes(OP_LESS, OP_NOT); break;
         case TOKEN_LESS:          emit_byte(OP_LESS); break;
         case TOKEN_LESS_EQUAL:    emit_two_bytes(OP_GREATER, OP_NOT); break;
+
+        // Logical operations (XOR doesn't have short circuit)
+        case TOKEN_XOR: emit_byte(OP_XOR); break;
 
         default:  /// Unreachable
             return;

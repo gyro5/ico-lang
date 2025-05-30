@@ -437,6 +437,19 @@ static InterpretResult vm_run() {
                 VM_BREAK;
             }
 
+            VM_CASE(OP_XOR) {
+                // a   b   a^b
+                // 0   0   0
+                // 0   1   1
+                // 1   0   1
+                // 1   1   0
+                IcoValue vb = peek(0);
+                IcoValue va = peek(1);
+                vm.stack_top[-2] = is_falsey(va) ? vb : BOOL_VAL(is_falsey(vb));
+                pop();
+                VM_BREAK;
+            }
+
             VM_CASE(OP_NOT) {
                 // Direct assignment instead of pop then push
                 vm.stack_top[-1] = BOOL_VAL(is_falsey(vm.stack_top[-1]));

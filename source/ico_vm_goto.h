@@ -26,6 +26,7 @@ static const void* const label_table[] = {
     [OP_MULTIPLY] = &&L_OP_MULTIPLY,
     [OP_DIVIDE] = &&L_OP_DIVIDE,
     [OP_MODULO] = &&L_OP_MODULO,
+    [OP_XOR] = &&L_OP_XOR,
     [OP_NOT] = &&L_OP_NOT,
     [OP_EQUAL] = &&L_OP_EQUAL,
     [OP_GREATER] = &&L_OP_GREATER,
