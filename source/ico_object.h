@@ -33,6 +33,13 @@ struct Obj {
     struct Obj* next;   // For GC sweeping phase
 };
 
+#ifdef C23_ENUM_FIXED_TYPE
+_Static_assert( sizeof(ObjType) == sizeof(char),
+    "C23 enum type is not supported, ObjType is not char.");
+_Static_assert( sizeof(Obj) == 16 * sizeof(char),
+    "C23 enum type is not supported, Obj is not 16-char-sized.");
+#endif
+
 // length is to know the string length without walking the string.
 // chars will have a null terminator so that C library can work with it.
 struct ObjString {

@@ -12,7 +12,6 @@ typedef struct Obj Obj ;
 typedef struct ObjString ObjString;
 
 // The types of values from the VM's POV
-#ifdef C23_ENUM_FIXED_TYPE
 typedef enum : int {
     VAL_BOOL,   // Boolean
     VAL_NULL,   // Null
@@ -22,17 +21,6 @@ typedef enum : int {
     VAL_ERROR,  // Special value type for error,
                 // can't be created by users.
 } ValueType;
-#else
-typedef enum {
-    VAL_BOOL,   // Boolean
-    VAL_NULL,   // Null
-    VAL_INT,    // 64-bit signed long int
-    VAL_FLOAT,  // IEEE 754 double-precision float
-    VAL_OBJ,    // For heap-allocated types
-    VAL_ERROR,  // Special value type for error,
-                // can't be created by users.
-} ValueType;
-#endif
 
 // A tagged union that can hold any type
 typedef struct {
@@ -47,6 +35,10 @@ typedef struct {
         uint32_t ui32[2];
     } as;
 } IcoValue;
+
+// We always want IcoValue to be no more than 16 bytes
+_Static_assert( sizeof(IcoValue) <= 16,
+    "C23 enum type is not supported, IcoValue is more than 16 bytes");
 
 // By hashing the string ":)" and ":(" in advance
 #define TRUE_HASH (uint32_t)2231767820

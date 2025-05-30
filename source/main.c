@@ -61,7 +61,7 @@ static void run_repl() {
         printf("\n%s", repl_prompt[res]);
 
         if (!fgets(line, sizeof(line), stdin)) {
-            printf(COLOR_BOLD COLOR_BLUE"\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
+            printf(COLOR_BOLD COLOR_BLUE"\n\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
             break;
         }
 
