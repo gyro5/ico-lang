@@ -18,6 +18,7 @@
 typedef enum {
     PREC_NONE,          // lowest precedence level
     PREC_ASSIGNMENT,    // =
+    PREC_TERNARY,       // ?_:
     PREC_OR,            // |
     PREC_AND,           // &
     PREC_EQUALITY,      // == !=
@@ -105,6 +106,7 @@ static void parse_literal(bool can_assign);
 static void parse_func_literal(bool can_assign);
 static void parse_and(bool can_assign);
 static void parse_or(bool can_assign);
+static void parse_ternary(bool can_assign);
 static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
 static void parse_down_triangle(bool can_assign);
@@ -115,7 +117,7 @@ static void parse_statement();
 ParseRule parse_rules[] = {
     [TOKEN_VAR]             = {NULL, NULL, PREC_NONE},
     [TOKEN_LOOP]            = {NULL, NULL, PREC_NONE},
-    [TOKEN_QUESTION]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_QUESTION]        = {NULL, parse_ternary, PREC_TERNARY},
     [TOKEN_SEMICOLON]       = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_BRACE]      = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE},
@@ -913,6 +915,25 @@ static void parse_or(bool can_assign) {
 
     parse_expr_with_precedence(PREC_OR); // right operand
     patch_jump(end_jump_offset);
+}
+
+// Parse and compile a ternary expression
+static void parse_ternary(bool can_assign) {
+    // The condition expression and the '?' is already parsed
+
+    int then_jump_offset = emit_jump(OP_JUMP_IF_FALSE);
+
+    // Then branch
+    emit_byte(OP_POP); // Pop the condition
+    parse_expr_with_precedence(PREC_OR);
+    int else_jump_offset = emit_jump(OP_JUMP); // Skip the else branch
+
+    // Else branch
+    patch_jump(then_jump_offset);
+    consume_mandatory(TOKEN_COLON, "Expect ':' in ternary expression.");
+    emit_byte(OP_POP);
+    parse_expr_with_precedence(PREC_OR);
+    patch_jump(else_jump_offset);
 }
 
 // Parse and compile a while loop.
