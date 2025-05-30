@@ -165,7 +165,7 @@ static Token parse_string() {
     return make_token(TOKEN_STRING);
 }
 
-// Parse a number literal token in the source code
+// Parse an int or a float literal token in the source code
 static Token parse_number() {
     bool is_float = false;
 
@@ -231,7 +231,7 @@ Token scan_next_token() {
 
     // Check for number literals
     if (is_digit(c)) {
-        return parse_number(); // TODO: fix this
+        return parse_number();
     }
 
     switch (c) {

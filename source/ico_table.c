@@ -142,7 +142,7 @@ static Entry* find_entry(Entry* entries, uint32_t capacity, IcoValue target) {
         case VAL_OBJ: return find_obj_entry(entries, capacity, AS_OBJ(target));
 
         case VAL_ERROR: case VAL_NULL: default:
-            // Should be unreachable --> Check in VM when try to access // TODO
+            // Should be unreachable --> Check in VM when try to access with [] // TODO
             return &absent_entry;
     }
 }

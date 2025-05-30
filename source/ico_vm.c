@@ -167,7 +167,8 @@ static bool call_value(IcoValue callee, int arg_count) {
 // ObjUpvalue. Will reuse the ObjUpvalue if this local var has
 // been captured before.
 static ObjUpValue* capture_upvalue(IcoValue* upper_local) {
-    // Try to find an existing upvalue that capture this local var
+    // Try to find an existing upvalue that captured this local var
+    // in the linked list of open upvalues (vm.open_upvalues).
     ObjUpValue* prev = NULL;
     ObjUpValue* curr = vm.open_upvalues;
     while (curr != NULL && curr->location > upper_local) {
