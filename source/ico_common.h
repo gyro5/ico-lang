@@ -17,8 +17,8 @@
 // GCC still supports this even when "-std=c23" is not set
 #define C23_ENUM_FIXED_TYPE
 
-// Switch dispatch is enabled by default when compiling in ANSI C
-// (release_ansi) but it can be enabled manually here.
+// Switch dispatch is enabled by default when compiling with
+// "-DSWITCH_DISPATCH" but it can be enabled manually here.
 // #define SWITCH_DISPATCH
 
 #ifdef DEBUG // Will be enabled at the compile command

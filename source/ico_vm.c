@@ -295,7 +295,8 @@ static InterpretResult vm_run() {
 #endif
 
 #ifdef SWITCH_DISPATCH
-// Enabled when compiling as ANSI C, or manually in ico_common.h
+// Enabled when compiling in ANSI C or debug mode,
+// and can be enabled manually in ico_common.h
 #define VM_DISPATCH(ins)    switch(ins)
 #define VM_CASE(opcode)     case opcode:
 #define VM_BREAK            break
@@ -307,9 +308,8 @@ static InterpretResult vm_run() {
         /***********************
             OPCODE SWITCHING
         ************************/
-        uint8_t instruction = READ_NEXT_BYTE();
-            // printf("%d", instruction);
-        VM_DISPATCH (instruction) {
+        uint8_t instruction;
+        VM_DISPATCH (instruction = READ_NEXT_BYTE()) {
             VM_CASE(OP_CONSTANT) {
                 // Quick note: The {} is required because before C23,
                 // declaring a variable right after a label (which is
@@ -621,6 +621,9 @@ static InterpretResult vm_run() {
 #undef READ_SHORT
 #undef BINARY_OP
 #undef BINARY_OP_RESULT
+#undef VM_DISPATCH
+#undef VM_CASE
+#undef VM_BREAK
 }
 
 //------------------------------

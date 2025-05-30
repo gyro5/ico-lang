@@ -4,7 +4,7 @@ CC := gcc
 CFLAGS := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function
 
 # Flags for debug build
-DFLAGS := -g -Og -DDEBUG -std=gnu17
+DFLAGS := -g -Og -DDEBUG -std=c17 -DSWITCH_DISPATCH
 
 # Flags for release build that uses GCC's labels as values extension
 # for computed gotos dispatching (similar to Lua's jump table).
