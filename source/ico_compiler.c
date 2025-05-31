@@ -1182,12 +1182,12 @@ ObjFunction* compile(const char *source_code) {
     return parser.had_error ? NULL : result_func;
 }
 
-// void mark_compiler_roots() {
-//     Compiler* compiler = curr_compiler;
+void mark_compiler_roots() {
+    Compiler* compiler = curr_compiler;
 
-//     // Mark the ObjFunction of all linked compiler structs
-//     while (compiler != NULL) {
-//         mark_object((Obj*)compiler->function);
-//         compiler = compiler->enclosing;
-//     }
-// }
+    // Mark the ObjFunction of all linked compiler structs
+    while (compiler != NULL) {
+        mark_object((Obj*)compiler->function);
+        compiler = compiler->enclosing;
+    }
+}

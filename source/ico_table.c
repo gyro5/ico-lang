@@ -283,17 +283,12 @@ ObjString* table_find_string(Table* table, const char* str, int length, uint32_t
     }
 }
 
-// void table_remove_white(Table* table) {
-//     for (uint32_t i = 0; i < table->capacity; i++) {
-//         Entry* entry = &table->entries[i];
-//         if (entry->key != NULL && !entry->key->obj.is_marked) {
-//             // Author's code:
-//             // table_delete(table, entry->key);
-//             //
-//             // My version: Copied code from table_delete()
-//             // to avoid redundant check
-//             entry->key = NULL;
-//             entry->value = bool_val(true);
-//         }
-//     }
-// }
+void table_remove_white(Table* table) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
+        Entry* entry = &table->entries[i];
+        if (IS_OBJ(entry->key) && !AS_OBJ(entry->key)->is_marked) {
+            entry->key = NULL_VAL;
+            entry->value = BOOL_VAL(true);
+        }
+    }
+}

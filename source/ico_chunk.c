@@ -2,6 +2,7 @@
 
 #include "ico_chunk.h"
 #include "ico_memory.h"
+#include "ico_vm.h"
 
 void init_chunk(CodeChunk *chunk) {
     chunk->size = 0;
@@ -41,8 +42,8 @@ void free_chunk(CodeChunk* chunk) {
 }
 
 int add_constant(CodeChunk* chunk, IcoValue val) {
-    // push(val); // To avoid Obj value being sweeped by the GC
+    push(val); // To avoid Obj value being sweeped by the GC
     append_value_array(&chunk->const_pool, val);
-    // pop();
+    pop();
     return chunk->const_pool.size - 1;
 }

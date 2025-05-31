@@ -10,6 +10,6 @@ ObjFunction* compile(const char* source_code);
 
 // GC function: Mark the objects created and used by the compiler,
 // such as the ObjFunction's.
-// void mark_compiler_roots();
+void mark_compiler_roots();
 
 #endif

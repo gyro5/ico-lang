@@ -672,14 +672,14 @@ void init_vm() {
     // No allocated Objs yet
     vm.allocated_objs = NULL;
 
-    // // Initialize the gray stack (for GC)
-    // vm.gray_count = 0;
-    // vm.gray_capacity = 0;
-    // vm.gray_stack = NULL;
+    // Initialize the gray stack (for GC)
+    vm.gray_count = 0;
+    vm.gray_capacity = 0;
+    vm.gray_stack = NULL;
 
-    // // Initialize the GC trigger
-    // vm.bytes_allocated = 0;
-    // vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
+    // Initialize the GC trigger
+    vm.bytes_allocated = 0;
+    vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
 
     // Initialize the hash tables
     init_table(&vm.globals); // table of global variables

@@ -3,6 +3,7 @@
 
 #include "ico_memory.h"
 #include "ico_vm.h"
+#include "ico_compiler.h"
 
 #define GC_HEAP_GROW_FACTOR 2  // Arbitrarily chosen
 
@@ -15,7 +16,6 @@
 * != 0        > old_cap   grow curent allocation
 */
 void* reallocate(void* ptr, size_t old_size, size_t new_size) {
-    /*
     vm.bytes_allocated += new_size - old_size;
 
     if (new_size > old_size) {
@@ -23,13 +23,11 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size) {
         // Stress testing GC: Run at every possible chance
         collect_garbage();
 #endif
-
         // Normal GC: Run when threshold reached
         if (vm.bytes_allocated > vm.next_gc_run) {
             collect_garbage();
         }
     }
-        */
 
     if (new_size == 0) {
         free(ptr);
@@ -37,8 +35,7 @@ void* reallocate(void* ptr, size_t old_size, size_t new_size) {
     }
 
     void* new_ptr = realloc(ptr, new_size);
-    if (new_ptr == NULL) {
-        // Realloc failed due to not enough memory
+    if (new_ptr == NULL) { // Realloc failed due to not enough memory
         fprintf(stderr, "Error: Out of memory.");
         exit(1);
     }
@@ -104,14 +101,14 @@ void free_objects() {
         curr_obj = next_obj;
     }
 
-    // free(vm.gray_stack); // TODO uncomment
+    free(vm.gray_stack);
 }
-/*
+
 // GC function: Mark all root objects (for the marking
 // phase of mark-sweep GC)
 static void mark_roots() {
     // Mark all local variables on the VM stack
-    for (Value* slot = vm.stack; slot < vm.stack_top; slot++) {
+    for (IcoValue* slot = vm.stack; slot < vm.stack_top; slot++) {
         mark_value(*slot);
     }
 
@@ -130,9 +127,6 @@ static void mark_roots() {
 
     // Mark objects used by the compiler
     mark_compiler_roots();
-
-    // Mark the "init" string
-    mark_object((Obj*)vm.init_str);
 }
 
 void mark_object(Obj* obj) {
@@ -141,34 +135,44 @@ void mark_object(Obj* obj) {
 
 #ifdef DEBUG_LOG_GC
     printf("%p mark ", (void*)obj);
-    print_value(obj_val(obj));
+    print_value(OBJ_VAL(obj));
     printf("\n");
 #endif
 
     // Mark the object as gray (is_marked and added to gray stack)
+    // if the object type has references to other Objs.
     obj->is_marked = true;
-    if (vm.gray_capacity < vm.gray_count + 1) {
-        vm.gray_capacity = grow_capacity(vm.gray_capacity);
-        vm.gray_stack = (Obj**)realloc(vm.gray_stack, sizeof(Obj**) * vm.gray_capacity);
-        // Use system's realloc() because we can't use Ico's reallocate()
+    switch (obj->type) {
+        case OBJ_STRING: case OBJ_NATIVE:
+            // These types don't have any reference --> Don't add to gray stack
+            break;
 
-        // Check for allocation error
-        if (vm.gray_stack == NULL) {
-            fprintf(stderr, "Error: Out of memory.");
-            exit(1);
-        }
+        default:
+            if (vm.gray_capacity < vm.gray_count + 1) {
+                vm.gray_capacity = GROW_CAPACITY(vm.gray_capacity);
+                vm.gray_stack = (Obj**)realloc(vm.gray_stack,
+                    sizeof(Obj**) * vm.gray_capacity);
+                // Use system's realloc() because we can't use Ico's reallocate()
+
+                // Check for allocation error
+                if (vm.gray_stack == NULL) {
+                    fprintf(stderr, "Error: Out of memory.");
+                    exit(1);
+                }
+            }
+            vm.gray_stack[vm.gray_count++] = obj;
+            break;
     }
-    vm.gray_stack[vm.gray_count++] = obj;
 }
 
-void mark_value(Value val) {
-    if (is_obj(val)) mark_object(as_obj(val));
+void mark_value(IcoValue val) {
+    if (IS_OBJ(val)) mark_object(AS_OBJ(val));
 }
 
 void mark_table(Table* table) {
-    for (int i = 0; i < table->capacity; i++) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
         Entry* entry = &table->entries[i];
-        mark_object((Obj*)entry->key);
+        mark_value(entry->key);
         mark_value(entry->value);
     }
 }
@@ -185,16 +189,11 @@ static void mark_value_array(ValueArray* array) {
 static void blacken_one_object(Obj* obj) {
 #ifdef DEBUG_LOG_GC
     printf("%p blacken ", (void*)obj);
-    print_value(obj_val(obj));
+    print_value(OBJ_VAL(obj));
     printf("\n");
 #endif
 
     switch (obj->type) {
-        // These Obj subtypes have no reference
-        case OBJ_NATIVE:
-        case OBJ_STRING:
-            break;
-
         case OBJ_UPVALUE:
             // Mark closed-over value that is no longer on the stack
             mark_value(((ObjUpValue*)obj)->closed);
@@ -226,24 +225,8 @@ static void blacken_one_object(Obj* obj) {
             break;
         }
 
-        case OBJ_CLASS: {
-            ObjClass* class = (ObjClass*)obj;
-            mark_object((Obj*)class->name);
-            mark_table(&class->methods);
-            break;
-        }
-
-        case OBJ_INSTANCE: {
-            ObjInstance* instance = (ObjInstance*)obj;
-            mark_object((Obj*)instance->class_);
-            mark_table(&instance->fields);
-            break;
-        }
-
-        case OBJ_BOUND_METHOD: {
-            ObjBoundMethod* bound = (ObjBoundMethod*)obj;
-            mark_value(bound->receiver);
-            mark_object((Obj*)bound->method);
+        default: {
+            fprintf(stderr, "Error in ico_memory.c: This should be unreachable.");
             break;
         }
     }
@@ -316,4 +299,3 @@ void collect_garbage() {
         before - vm.bytes_allocated, before, vm.bytes_allocated, vm.next_gc_run);
 #endif
 }
-*/

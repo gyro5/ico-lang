@@ -19,18 +19,17 @@ typedef struct {
 typedef struct {
     CallFrame frames[FRAMES_MAX];       // The VM's call stack (aka the VM's stack)
     int frame_count;                    // The current frame count (aka top of call stack)
-    IcoValue stack[STACK_MAX];             // The value stack
-    IcoValue* stack_top;                   // The value stack pointer (to next slot to-be-used)
+    IcoValue stack[STACK_MAX];          // The value stack
+    IcoValue* stack_top;                // The value stack pointer (to next slot to-be-used)
     Obj* allocated_objs;                // Linked list of allocated Obj for memory management
     Table strings;                      // For string interning
     Table globals;                      // To store global variables
     ObjUpValue* open_upvalues;          // The list of open upvalues
-    // Obj** gray_stack;                   // GC: stack of gray objects
-    // int gray_count;                     // GC: number of gray objects
-    // int gray_capacity;                  // GC: capacity of the gray stack
-    // size_t bytes_allocated;             // GC: Number of bytes allocated
-    // size_t next_gc_run;                 // GC: Threshold for next GC run
-    // ObjString* init_str;                // To cache the string "init"
+    Obj** gray_stack;                   // GC: stack of gray objects
+    int gray_count;                     // GC: number of gray objects
+    int gray_capacity;                  // GC: capacity of the gray stack
+    size_t bytes_allocated;             // GC: Number of bytes allocated
+    size_t next_gc_run;                 // GC: Threshold for next GC run
 } VM;
 
 // Enum for interpreter result or REPL state.
