@@ -19,7 +19,7 @@
 
 // Switch dispatch is enabled by default when compiling with
 // "-DSWITCH_DISPATCH" but it can be enabled manually here.
-// #define SWITCH_DISPATCH
+#define SWITCH_DISPATCH
 
 #ifdef DEBUG // Will be enabled at the compile command
 // #define DEBUG_PRINT_BYTECODE

@@ -21,7 +21,7 @@ typedef enum {
     OP_MULTIPLY,    // [arithmetic *]
     OP_DIVIDE,      // [arithmetic /]
     OP_MODULO,      // [integer %]
-    OP_XOR,         // [boolean ^]
+    OP_POWER,       // [arithmetic ^]
 
     // Logical and comparison instructions
     OP_NOT,         // [logical not]
