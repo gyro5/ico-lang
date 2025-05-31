@@ -3,9 +3,8 @@
 
 #include "ico_common.h"
 
-// The parent type for all heap-allocated types.
-// The "struct Obj" is defined in another module
-// due to cyclic dependency issues.
+// The parent type for all heap-allocated types. The "struct Obj" is
+// defined in another module due to cyclic dependency issues.
 typedef struct Obj Obj ;
 
 // Forward declare the obj's string subtype
@@ -18,8 +17,7 @@ typedef enum : int {
     VAL_INT,    // 64-bit signed long int
     VAL_FLOAT,  // IEEE 754 double-precision float
     VAL_OBJ,    // For heap-allocated types
-    VAL_ERROR,  // Special value type for error,
-                // can't be created by users.
+    VAL_ERROR,  // Special value type for error, can't be created by users.
 } ValueType;
 
 // A tagged union that can hold any type
@@ -38,7 +36,7 @@ typedef struct {
 
 // We always want IcoValue to be no more than 16 bytes
 _Static_assert( sizeof(IcoValue) <= 16,
-    "C23 enum type is not supported, IcoValue is more than 16 bytes");
+    "C23 enum type is not supported, IcoValue is more than 16 bytes. Please disable this flag.");
 
 // By hashing the string ":)" and ":(" in advance
 #define TRUE_HASH (uint32_t)2231767820

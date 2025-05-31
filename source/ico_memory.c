@@ -58,8 +58,7 @@ static void free_one_object(Obj* obj) {
 
         case OBJ_UPVALUE: {
             FREE(ObjUpValue, obj);
-            // Don't free the closed-over value as it can be
-            // shared by multiple ObjClosure.
+            // Don't free closed-over value as it can be shared by multiple ObjClosure.
             break;
         }
 
@@ -104,8 +103,7 @@ void free_objects() {
     free(vm.gray_stack);
 }
 
-// GC function: Mark all root objects (for the marking
-// phase of mark-sweep GC)
+// GC function: Mark all root objects (for the marking phase of mark-sweep GC)
 static void mark_roots() {
     // Mark all local variables on the VM stack
     for (IcoValue* slot = vm.stack; slot < vm.stack_top; slot++) {
@@ -127,6 +125,8 @@ static void mark_roots() {
 
     // Mark objects used by the compiler
     mark_compiler_roots();
+
+    // Note that the table of interned strings is not a root!
 }
 
 void mark_object(Obj* obj) {
@@ -232,8 +232,7 @@ static void blacken_one_object(Obj* obj) {
     }
 }
 
-// Trace through all object references and mark
-// the reachable objects.
+// Trace through all object references and mark the reachable objects.
 static void trace_references() {
     while (vm.gray_count > 0) {
         Obj* obj = vm.gray_stack[--vm.gray_count];

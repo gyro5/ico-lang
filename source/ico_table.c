@@ -128,11 +128,10 @@ static Entry* find_obj_entry(Entry* entries, uint32_t capacity, Obj* target) {
 }
 
 // The main find_entry function:
-// Find an entry slot for the new key in the backing array,
-// and return a pointer to that slot. Input is "entries" instead
-// of the table so that newly allocated entry array can be used.
-// Return an empty slot if can't find target. Return NULL if
-// target key is invalid.
+// Find an entry slot for the new key in the backing array, and return a pointer
+// to that slot. Input is "entries" instead of the table so that newly allocated
+// entry array can be used. Return an empty slot if can't find target.
+// Return NULL if target key is invalid.
 static Entry* find_entry(Entry* entries, uint32_t capacity, IcoValue target) {
     // Switch case based on key type
     switch (target.type) {
@@ -267,9 +266,8 @@ ObjString* table_find_string(Table* table, const char* str, int length, uint32_t
             // Stop if found an actual empty slot -> String not found
             if (IS_NULL(entry->value)) return NULL;
         }
-        // Slot with string -> Check for equality by comparing
-        // hash and length as quick checks, then verify with
-        // char-to-char comparison.
+        // Slot with string -> Check for equality by comparing hash and length as
+        // quick checks, then verify with char-to-char comparison.
         else if (IS_STRING(curr_key)) {
             ObjString* str_key = AS_STRING(curr_key);
             if (str_key->length == length && AS_OBJ(curr_key)->hash == hash

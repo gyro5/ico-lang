@@ -11,9 +11,8 @@
 //      STATIC FUNCTIONS AND MACROS
 //---------------------------------------
 
-// Allocate an Obj with specific size and type that
-// depend on the specific Obj subtype. Also set up
-// metadata for memory management purpose.
+// Allocate an Obj with specific size and type that depend on the
+// specific Obj subtype. Also set up metadata for memory management purpose.
 static Obj* allocate_object(size_t size, ObjType type) {
     // "size" depends on the specific Obj subtype
     Obj* obj = (Obj*)reallocate(NULL, 0, size);
@@ -52,13 +51,12 @@ static ObjString* allocate_str_obj(char* chars, int length, uint32_t hash) {
 
     // Intern the string whenever we create a new one
     table_set(&vm.strings, val_str, NULL_VAL);
-
     pop();
 
     return obj_str;
 }
 
-// Return the FNV-1a hash code of a string
+// Return the FNV-1a hash code of a char/byte array
 static uint32_t hash_chars(const char* str, int length) {
     // Pre-chosen constant of FNV-1a hash algorithm
     uint32_t hash = 2166136261u;
@@ -192,6 +190,7 @@ void print_object(IcoValue val) {
             break;
 
         case OBJ_FUNCTION:
+            // Should normally be unreachable
             print_function_obj(AS_FUNCTION(val));
             break;
 

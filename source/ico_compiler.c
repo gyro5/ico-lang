@@ -31,8 +31,7 @@ typedef enum {
     PREC_PRIMARY
 } Precedence;
 
-// A type for parse function pointer (which takes
-// no parameter and return void).
+// A type for parse function pointer (which takes no parameter and return void).
 typedef void (*ParseFn)(bool can_assign);
 
 // Represent a row in the function pointer table
@@ -73,7 +72,7 @@ typedef struct Compiler {
 
 Compiler* curr_compiler = NULL;
 
-#define MAX_NESTED_FUNCTIONS 64 // Should be equals to VM's FRAMES_MAX
+#define MAX_NESTED_FUNCTIONS 16
 unsigned int n_nested_compiler = 0;
 
 typedef struct {
@@ -180,19 +179,16 @@ static void error_at(Token* token, const char* msg) {
     parser.panicking = true;
 
     // Print the line number of the token
-    fprintf(stderr, "[Line %d] Error", token->line_num);
+    fprintf(stderr, COLOR_RED "[Line %d] Error", token->line_num);
 
     // Check for token type (and optionally print "at end" or the lexeme)
-    if (token->type == TOKEN_EOF) {
-        // End of file
+    if (token->type == TOKEN_EOF) { // End of file
         fprintf(stderr, " at end");
     }
     else if (token->type == TOKEN_ERROR) {
-        // Error token: The lexeme is actually the error
-        // message created by the scanner, so no need to
-        // print the lexeme.
-
-        // Nothing to do here!
+        // Error token: The lexeme is actually the error message created
+        // by the scanner, so no need to print the lexeme.
+        // --> Nothing to do here!
     }
     else {
         // Other token types --> Print the lexeme
@@ -200,7 +196,7 @@ static void error_at(Token* token, const char* msg) {
     }
 
     // Print the passed error message
-    fprintf(stderr, ": %s\n", msg);
+    fprintf(stderr, ": %s\n" COLOR_RESET, msg);
 
     parser.had_error = true;
 }
@@ -215,8 +211,7 @@ static void error_prev_token(const char* msg) {
     error_at(&parser.prev_token, msg);
 }
 
-// Move the parser's "cursor" to the next token,
-// while report and skip all error tokens.
+// Move the parser's "cursor" to the next token, while report and skip all error tokens.
 static void next_token() {
     parser.prev_token = parser.curr_token;
 
@@ -233,14 +228,12 @@ static void next_token() {
     }
 }
 
-// Check the type of the next token and return true
-// if it matches, otherwise return false.
+// Check the type of the next token and return true if it matches, otherwise return false.
 static bool check_next_token(TokenType type) {
     return parser.curr_token.type == type;
 }
 
-// Check and consume the next token if it matches
-// the passed TokenType.
+// Check and consume the next token if it matches the passed TokenType.
 static bool match_next_token(TokenType type) {
     if (!check_next_token(type)) return false;
 
@@ -248,8 +241,7 @@ static bool match_next_token(TokenType type) {
     return true;
 }
 
-// Check and consume a token of the passed TokenType,
-// and report an error if not found.
+// Check and consume a token of the passed TokenType, and report an error if not found.
 static void consume_mandatory(TokenType type, const char* error_msg) {
     if (parser.curr_token.type == type) {
         next_token();
@@ -275,9 +267,8 @@ static Token synthetic_token(const char* text) {
 
 // Return a pointer to the currently being-compiled chunk.
 static CodeChunk* current_chunk() {
-    // The purpose of this function is to encapsulate
-    // the notion of the "current chunk" inside this
-    // function.
+    // The purpose of this function is to encapsulate the notion of
+    // the "current chunk" inside this function.
     return &curr_compiler->function->chunk;
 }
 
@@ -294,8 +285,7 @@ static void emit_two_bytes(uint8_t byte1, uint8_t byte2) {
 
 // Add OP_RETURN to the currently being-compiled chunk.
 static void emit_op_return() {
-    // Implicit null return
-    emit_byte(OP_NULL);
+    emit_byte(OP_NULL); // Implicit null return
     emit_byte(OP_RETURN);
 }
 
@@ -397,8 +387,7 @@ static void init_compiler(Compiler* compiler, FunctionType type, const char* nam
     }
 }
 
-// Finish compiling the current chunk (and optionally
-// print bytecode dumps if in debug mode).
+// Finish compiling the current chunk (and optionally print bytecode dumps if in debug mode).
 static ObjFunction* end_compiler() {
     emit_op_return();
 
@@ -467,7 +456,6 @@ static void parse_expr_with_precedence(Precedence precedence) {
         parse_infix(can_assign);
     }
 
-
     // can_assign is always true at top-level due to parse_expression()
     // calling this function with PREC_ASSIGNMENT. If can_assign is false,
     // the "=" will not be consumed, so when control returns to the
@@ -513,7 +501,6 @@ static void parse_grouping(bool can_assign) {
     // The opening '(' has been consumed.
     // Proceed to consume the inner expression.
     parse_expression();
-
     consume_mandatory(TOKEN_RIGHT_PAREN, "Expect closing ')'.");
 }
 
@@ -571,15 +558,15 @@ static void parse_binary(bool can_assign) {
 }
 
 static void parse_power(bool can_assign) {
-    // Parse the right operand with one precedence level higher
+    // Parse the right operand with the same precedence (PREC_POW),
+    // (which is different from other binary operators).
     parse_expr_with_precedence(PREC_POW);
     emit_byte(OP_POWER);
 }
 
 // Parse and compile a string literal.
 static void parse_string_literal(bool can_assign) {
-    // "+ 1" and "- 2" are to trim the double-quotes of
-    // the string literal lexeme.
+    // "+ 1" and "- 2" are to trim the double-quotes of the string literal lexeme.
     ObjString* obj_str = copy_and_create_str_obj(
         parser.prev_token.start + 1,
         parser.prev_token.length - 2
@@ -869,11 +856,11 @@ static void end_scope() {
 static void parse_expression_stmt() {
     parse_expression();
     consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after expression.");
-    emit_byte(OP_POP);
+    emit_byte(OP_POP); // TODO change to OP_PRINT when REPL
 }
 
 // Parse and compile an if statement.
-// Grammar: if -> "\ " expr "?" stmt (":" stmt)? ;
+// Grammar: if -> "\" expr "?" stmt (":" stmt)? ;
 static void parse_if_stmt() {
     // The condition
     parse_expression();
@@ -908,8 +895,7 @@ static void parse_and(bool can_assign) {
 
 // Parse and compile an or operation.
 static void parse_or(bool can_assign) {
-    // If left operand is falsey, make a tiny jump to
-    // evaluate the right operand
+    // If left operand is falsey, make a tiny jump to evaluate the right operand
     int falsey_jump_offset = emit_jump(OP_JUMP_IF_FALSE);
 
     // Else (left operand is truthy), jump through to the end
@@ -925,7 +911,6 @@ static void parse_or(bool can_assign) {
 // Parse and compile a ternary expression
 static void parse_ternary(bool can_assign) {
     // The condition expression and the '?' is already parsed
-
     int then_jump_offset = emit_jump(OP_JUMP_IF_FALSE);
 
     // Then branch

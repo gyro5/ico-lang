@@ -15,8 +15,7 @@ static int simple_instruction(const char* ins_name, int offset) {
     return offset + 1; // Because simple instruction only takes 1 byte
 }
 
-// Print a constant instruction. General format of these
-// instructions: [opcode][const_idx]
+// Print a constant instruction. General format of these instructions: [opcode][const_idx]
 static int constant_instruction(const char* ins_name, CodeChunk* chunk, int offset) {
     // The index of the constant in the pool is right after the opcode
     uint8_t constant_idx = chunk->chunk[offset + 1];
@@ -34,31 +33,19 @@ static int constant_instruction(const char* ins_name, CodeChunk* chunk, int offs
     return offset + 2;
 }
 
-// Print a byte instruction. General format of these
-// instructions: [opcode][byte]
+// Print a byte instruction. General format of these instructions: [opcode][byte]
 static int byte_instruction(const char* name, CodeChunk* chunk, int offset) {
     uint8_t stack_index = chunk->chunk[offset + 1];
     printf("%-16s %4d\n", name, stack_index);
     return offset + 2;
 }
 
-// Print a jump instruction. General format:
-// [jump_opcode][off][set]
+// Print a jump instruction. General format: [jump_opcode][off][set]
 static int jump_instruction(const char* name, int sign, CodeChunk* chunk, int offset) {
     // Calculate the jump distance
     uint16_t jump_dist = (uint16_t)(chunk->chunk[offset + 1] << 8);
     jump_dist |= chunk->chunk[offset + 2];
     printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump_dist);
-    return offset + 3;
-}
-
-// Print an invoke instruction
-static int invoke_instruction(const char* name, CodeChunk* chunk, int offset) {
-    uint8_t const_idx = chunk->chunk[offset + 1];
-    uint8_t arg_count = chunk->chunk[offset + 2];
-    printf("%-16s (%d args) %4d '", name, arg_count, const_idx);
-    print_value(chunk->const_pool.values[const_idx]);
-    printf("'\n");
     return offset + 3;
 }
 
@@ -76,7 +63,7 @@ void disass_chunk(CodeChunk* chunk, const char* chunk_name) {
     printf("------------------------------------------\n");
 
     for (int offset = 0; offset < chunk->size; ) {
-        // Disassemble instruction-by-instruction
+        // Disassemble instruction-by-instruction.
         // Offset of next instruction is returned from the
         // disass_instruction() function because instructions
         // can have different sizes.

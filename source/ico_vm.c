@@ -6,11 +6,12 @@
 
 #include "ico_common.h"
 #include "ico_vm.h"
-#include "ico_debug.h"
 #include "ico_compiler.h"
-#include "ico_value.h"
 #include "ico_memory.h"
-#include "ico_object.h"
+
+#ifdef DEBUG_TRACE_EXECUTION
+#include "ico_debug.h"
+#endif
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -35,8 +36,7 @@ static IcoValue peek(int distance) {
     return *(vm.stack_top - 1 - distance);
 }
 
-// Return the falsiness of an IcoValue
-// (False only when nil or boolean false)
+// Return the falsiness of an IcoValue (false only when null or boolean false)
 static bool is_falsey(IcoValue val) {
     return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
@@ -65,6 +65,8 @@ static void concat_strings() {
 
 // Report a runtime error with a format string as the error message
 static void runtime_error(const char* format_str, ...) {
+    fprintf(stderr, COLOR_RED); // Errors printed in red
+
     // Boilerplate to use "variadic function" (aka take varying number of arguments).
     // vfprintf() is like printf() but takes an explicit variadic list (va_list) instead.
     va_list args;
@@ -92,6 +94,7 @@ static void runtime_error(const char* format_str, ...) {
             fprintf(stderr, "script\n");
         }
     }
+    fprintf(stderr, COLOR_RESET);
 
     reset_stack(); // For the next REPL run
 }
@@ -164,9 +167,8 @@ static bool call_value(IcoValue callee, int arg_count) {
     return false;
 }
 
-// Capture a local variable (of the enclosing function) into an
-// ObjUpvalue. Will reuse the ObjUpvalue if this local var has
-// been captured before.
+// Capture a local variable (of the enclosing function) into an ObjUpvalue.
+// Will reuse the ObjUpvalue if this local var has been captured before.
 static ObjUpValue* capture_upvalue(IcoValue* upper_local) {
     // Try to find an existing upvalue that captured this local var
     // in the linked list of open upvalues (vm.open_upvalues).
@@ -220,8 +222,8 @@ static InterpretResult vm_run() {
 
     /* Use a "register" local variable to optimize getting the next opcode.
     IMPORTANT: Need to save the ip back to the call frame when there
-    is a call or a runtime error (as runtime_error uses frame.ip to
-    report errors) (see VM_RUNTIME_ERROR macro belows). */
+    is a call (see OP_CALL) or a runtime error (as runtime_error uses
+    frame.ip to report errors) (see VM_RUNTIME_ERROR macro belows). */
     register uint8_t* ip = curr_frame->ip;
 
 #ifdef  DEBUG_TRACE_EXECUTION
@@ -242,9 +244,9 @@ static InterpretResult vm_run() {
 // Get the next 2 bytes as an unsigned short
 #define READ_SHORT() (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 
-// Exclusive to report runtime error in this function so that
-// we don't forget to save the ip back to the call frame.
-// Use C99's variadic macro.
+/* Exclusive to report runtime error in this function so that
+we don't forget to save the ip back to the call frame.
+Use C99's variadic macro. */
 #define VM_RUNTIME_ERROR(msg, ...) \
     {curr_frame->ip = ip; runtime_error(msg __VA_OPT__(,) __VA_ARGS__);}
 
@@ -259,12 +261,11 @@ static InterpretResult vm_run() {
             floatCaseVal(AS_INT(va) op AS_FLOAT(vb)) : \
             intCaseVal(AS_INT(va) op AS_INT(vb)))
 
-// Common macro for the binary number operation:
-// - op: the binary operation
-// - floatCaseVal: result type when either value is float
-// - intCaseVal: result type when both values are int
-//
-// b is popped first because of LIFO.
+/* Common macro for the binary number operation:
+    - op: the binary operation
+    - floatCaseVal: result type when either value is float
+    - intCaseVal: result type when both values are int
+b is popped first because of LIFO.*/
 #define BINARY_OP(floatCaseVal, intCaseVal, op) \
     { \
     IcoValue vb = peek(0); \
@@ -276,6 +277,17 @@ static InterpretResult vm_run() {
     vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, floatCaseVal, intCaseVal, op); \
     pop(); \
     }
+
+#ifdef SWITCH_DISPATCH
+// Enabled when compiling in ANSI C or debug mode,
+// and can be enabled manually in ico_common.h
+#define VM_DISPATCH(ins)    switch(ins)
+#define VM_CASE(opcode)     case opcode:
+#define VM_BREAK            break
+#else
+// Use computed gotos by default
+#include "ico_vm_goto.h"
+#endif
 
     // Read and execute the bytecode byte-by-byte
     for (;;) {
@@ -295,17 +307,6 @@ static InterpretResult vm_run() {
             (int)(ip - curr_frame->closure->function->chunk.chunk));
 
         printf("\n");
-#endif
-
-#ifdef SWITCH_DISPATCH
-// Enabled when compiling in ANSI C or debug mode,
-// and can be enabled manually in ico_common.h
-#define VM_DISPATCH(ins)    switch(ins)
-#define VM_CASE(opcode)     case opcode:
-#define VM_BREAK            break
-#else
-// Use computed gotos by default
-#include "ico_vm_goto.h"
 #endif
 
         /************************
@@ -337,9 +338,6 @@ static InterpretResult vm_run() {
             }
 
             VM_CASE(OP_CONSTANT) {
-                // Quick note: The {} is required because before C23,
-                // declaring a variable right after a label (which is
-                // "case OP_CONSTANT:" in this case) is not allowed.
                 IcoValue constant = READ_CONSTANT();
                 push(constant);
                 VM_BREAK;
@@ -445,7 +443,7 @@ static InterpretResult vm_run() {
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
-                // Use pow of <math.h> to perform power
+                // Use pow() of <math.h> to perform power
                 vm.stack_top[-2] =
                     IS_FLOAT(va) ?
                         (IS_FLOAT(vb) ? FLOAT_VAL(pow(AS_FLOAT(va), AS_FLOAT(vb)))
@@ -604,7 +602,7 @@ static InterpretResult vm_run() {
                     if (is_local) { // Local var of the enclosing function
                         closure->upvalues[i] = capture_upvalue(curr_frame->base_ptr + idx);
                     }
-                    else { // Upvalue of the enclosing function
+                    else { // Upvalue of the enclosing function (aka transitive upvalue)
                         closure->upvalues[i] = curr_frame->closure->upvalues[idx];
                         // Copy the pointer to the actual ObjUpvalue.
                         //

@@ -53,7 +53,9 @@ static void run_repl() {
             break;
         }
 
+        printf(COLOR_CYAN);
         res = RUN_CODE(line);
+        printf(COLOR_RESET);
     }
 }
 
