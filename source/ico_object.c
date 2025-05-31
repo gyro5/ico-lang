@@ -86,7 +86,7 @@ static uint32_t hash_address(void* address) {
 // Helper function to print an ObjFunction
 static void print_function_obj(ObjFunction* func) {
     if (func->name == NULL) {
-        // For DEBUG_TRACE_EXECUTION. Lox users have
+        // For DEBUG_TRACE_EXECUTION as users have
         // no way to print the top-level "function".
         printf("<script>");
         return;

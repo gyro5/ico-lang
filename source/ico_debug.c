@@ -94,7 +94,7 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         printf("   | ");
     }
     else {
-        // First line (first byte), and any new lines in the Lox source code
+        // First line (first byte), and any new lines in the source code
         printf("%4d ", chunk->line_nums[offset]);
     }
 

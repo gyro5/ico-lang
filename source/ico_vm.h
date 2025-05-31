@@ -15,7 +15,7 @@ typedef struct {
     IcoValue* base_ptr;
 } CallFrame;
 
-// This struct represents the state of a Lox VM
+// This struct represents the state of an Ico VM
 typedef struct {
     CallFrame frames[FRAMES_MAX];       // The VM's call stack (aka the VM's stack)
     int frame_count;                    // The current frame count (aka top of call stack)
@@ -48,7 +48,7 @@ extern VM vm;
 // Initialize a VM
 void init_vm();
 
-// Interpret a string of Lox source code
+// Interpret a string of Ico source code
 InterpretResult vm_interpret(const char* source_code);
 
 // Tear down a VM

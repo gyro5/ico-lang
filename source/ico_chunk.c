@@ -2,7 +2,6 @@
 
 #include "ico_chunk.h"
 #include "ico_memory.h"
-// #include "clox_vm.h"
 
 void init_chunk(CodeChunk *chunk) {
     chunk->size = 0;

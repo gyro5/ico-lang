@@ -4,7 +4,6 @@
 #include "ico_common.h"
 #include "ico_value.h"
 #include "ico_chunk.h"
-// #include "ico_table.h"
 
 // Types of heap-allocated value
 #ifdef C23_ENUM_FIXED_TYPE
@@ -25,7 +24,7 @@ typedef enum {
 } ObjType;
 #endif
 
-// The "struct Obj" is declared in clox_value.h and defined here.
+// The "struct Obj" is declared in ico_value.h and defined here.
 struct Obj {
     ObjType type;       // Type tag for the obj
     bool is_marked;     // For GC marking phase
@@ -36,9 +35,9 @@ struct Obj {
 #ifdef C23_ENUM_FIXED_TYPE
 // Static checks (aka at compile time) for the sizes of some types
 _Static_assert( sizeof(ObjType) == sizeof(char),
-    "C23 enum type is not supported, ObjType is not char.");
-_Static_assert( sizeof(Obj) == 16 * sizeof(char),
-    "C23 enum type is not supported, Obj is not 16-char-sized.");
+    "C23 enum type is not supported, ObjType is not char. Please disable this flag.");
+_Static_assert( sizeof(Obj) == 16,
+    "C23 enum type is not supported, Obj is not 16 bytes. Please disable this flag.");
 #endif
 
 // length is to know the string length without walking the string.
@@ -53,8 +52,8 @@ struct ObjString {
 typedef struct ObjUpValue {
     Obj obj;
     IcoValue* location;
-    IcoValue closed;               // To hold the value when closed
-    struct ObjUpValue* next;    // For intrusive linked list of open upvalues
+    IcoValue closed;          // To hold the value when closed
+    struct ObjUpValue* next;  // For intrusive linked list of open upvalues
 } ObjUpValue;
 
 // Compile-time representation of a function
@@ -71,15 +70,14 @@ typedef struct {
 typedef struct {
     Obj obj;
     ObjFunction* function;
-    ObjUpValue** upvalues;  // The array of pointers to ObjUpvalue's
-                            // (to share the ObjUpvalue's with other closures)
+    ObjUpValue** upvalues;  // The array of pointers to ObjUpvalues
     int upvalue_count;
 } ObjClosure;
 
-// Function pointer type for Lox's native functions
+// Function pointer type for native functions
 typedef IcoValue (*NativeFn)(int arg_count, IcoValue* args);
 
-// Obj subtype for Lox's native function
+// Obj subtype for native function
 typedef struct {
     Obj obj;
     NativeFn function;

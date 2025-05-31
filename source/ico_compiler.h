@@ -4,7 +4,7 @@
 #include "ico_vm.h"
 #include "ico_object.h"
 
-// Compile a string of Lox source code into an ObjFunction
+// Compile a string of source code into an ObjFunction
 // and return it. Return NULL if there are compile errors.
 ObjFunction* compile(const char* source_code);
 

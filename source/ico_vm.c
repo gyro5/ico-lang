@@ -35,7 +35,7 @@ static IcoValue peek(int distance) {
     return *(vm.stack_top - 1 - distance);
 }
 
-// Return the falsiness of a clox Value
+// Return the falsiness of an IcoValue
 // (False only when nil or boolean false)
 static bool is_falsey(IcoValue val) {
     return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));

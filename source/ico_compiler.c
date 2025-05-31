@@ -1094,7 +1094,7 @@ static void parse_call(bool can_assign) {
 }
 /*
 // Parse and compile a dot-notation for property access
-// of a Lox instance.
+// of an Ico instance.
 static void parse_dot(bool can_assign) {
     // Parse the property's name
     consume_mandatory(TOKEN_IDENTIFIER, "Expect property name after '.'.");

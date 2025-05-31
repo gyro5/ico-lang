@@ -150,7 +150,7 @@ void mark_object(Obj* obj) {
     if (vm.gray_capacity < vm.gray_count + 1) {
         vm.gray_capacity = grow_capacity(vm.gray_capacity);
         vm.gray_stack = (Obj**)realloc(vm.gray_stack, sizeof(Obj**) * vm.gray_capacity);
-        // Use system's realloc() because we can't use clox's reallocate()
+        // Use system's realloc() because we can't use Ico's reallocate()
 
         // Check for allocation error
         if (vm.gray_stack == NULL) {
