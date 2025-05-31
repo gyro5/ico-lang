@@ -18,7 +18,7 @@
 typedef enum {
     PREC_NONE,          // lowest precedence level
     PREC_ASSIGNMENT,    // =
-    PREC_TERNARY,       // ?_:
+    PREC_TERNARY,       // ?:
     PREC_OR,            // |
     PREC_AND,           // &
     PREC_EQUALITY,      // == !=
@@ -26,6 +26,7 @@ typedef enum {
     PREC_TERM,          // + -
     PREC_FACTOR,        // * / %
     PREC_UNARY,         // ! -
+    PREC_POW,           // ^
     PREC_CALL,          // . () []
     PREC_PRIMARY
 } Precedence;
@@ -98,6 +99,7 @@ Parser parser; // Singleton parser struct
 static void parse_grouping(bool can_assign);
 static void parse_unary(bool can_assign);
 static void parse_binary(bool can_assign);
+static void parse_power(bool can_assign);
 static void parse_variable(bool can_assign);
 static void parse_string_literal(bool can_assign);
 static void parse_int_literal(bool can_assign);
@@ -126,9 +128,9 @@ ParseRule parse_rules[] = {
     [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
     [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE},
-    [TOKEN_OR]              = {NULL, parse_or, PREC_OR},
+    [TOKEN_PIPE]            = {NULL, parse_or, PREC_OR},
     [TOKEN_AND]             = {NULL, parse_and, PREC_AND},
-    [TOKEN_XOR]             = {NULL, parse_binary, PREC_OR}, // Mo short circuit for XOR
+    [TOKEN_CARET]           = {NULL, parse_power, PREC_POW}, // Arithmetic power
     [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM},
     [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
@@ -563,12 +565,15 @@ static void parse_binary(bool can_assign) {
         case TOKEN_LESS:          emit_byte(OP_LESS); break;
         case TOKEN_LESS_EQUAL:    emit_two_bytes(OP_GREATER, OP_NOT); break;
 
-        // Logical operations (XOR doesn't have short circuit)
-        case TOKEN_XOR: emit_byte(OP_XOR); break;
-
         default:  /// Unreachable
             return;
     }
+}
+
+static void parse_power(bool can_assign) {
+    // Parse the right operand with one precedence level higher
+    parse_expr_with_precedence(PREC_POW);
+    emit_byte(OP_POWER);
 }
 
 // Parse and compile a string literal.

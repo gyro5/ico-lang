@@ -2,6 +2,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <math.h>
 
 #include "ico_common.h"
 #include "ico_vm.h"
@@ -220,12 +221,16 @@ static InterpretResult vm_run() {
     /* Use a "register" local variable to optimize getting the next opcode.
     IMPORTANT: Need to save the ip back to the call frame when there
     is a call or a runtime error (as runtime_error uses frame.ip to
-    report errors). */
+    report errors) (see VM_RUNTIME_ERROR macro belows). */
     register uint8_t* ip = curr_frame->ip;
 
 #ifdef  DEBUG_TRACE_EXECUTION
     printf("\n============ Execution Trace =============\n");
 #endif
+
+/******************************
+    MACROS FOR THIS FUNCTION
+*******************************/
 
 // Return the next byte in the code chunk, then increment ip
 #define READ_NEXT_BYTE() (*ip++)
@@ -239,6 +244,12 @@ static InterpretResult vm_run() {
 
 // Same as read_constant() but also convert to ObjString*
 #define READ_STRING() AS_STRING(READ_CONSTANT())
+
+// Exclusive to report runtime error in this function so that
+// we don't forget to save the ip back to the call frame.
+// Use C99's variadic macro.
+#define VM_RUNTIME_ERROR(msg, ...) \
+    {curr_frame->ip = ip; runtime_error(msg __VA_OPT__(,) __VA_ARGS__);}
 
 // Helper for the below macro. Also used for OP_ADD and OP_DIVIDE.
 #define BINARY_OP_RESULT(va, vb, floatCaseVal, intCaseVal, op) \
@@ -257,14 +268,12 @@ static InterpretResult vm_run() {
 // - intCaseVal: result type when both values are int
 //
 // b is popped first because of LIFO.
-// This macro is inspired by Lua.
 #define BINARY_OP(floatCaseVal, intCaseVal, op) \
     { \
     IcoValue vb = peek(0); \
     IcoValue va = peek(1); \
     if (!IS_NUMBER(vb) || !IS_NUMBER(va)) { \
-        curr_frame->ip = ip; \
-        runtime_error("Operands must be 2 numbers."); \
+        VM_RUNTIME_ERROR("Operands must be 2 numbers."); \
         return INTERPRET_RUNTIME_ERROR; \
     } \
     vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, floatCaseVal, intCaseVal, op); \
@@ -302,9 +311,9 @@ static InterpretResult vm_run() {
 #include "ico_vm_goto.h"
 #endif
 
-        /***********************
-            OPCODE SWITCHING
-        ************************/
+        /************************
+            DECODE & DISPATCH
+        *************************/
         uint8_t instruction;
         VM_DISPATCH (instruction = READ_NEXT_BYTE()) {
             VM_CASE(OP_RETURN) {
@@ -365,8 +374,7 @@ static InterpretResult vm_run() {
                     vm.stack_top[-1].as.num_float = -AS_FLOAT(v);
                 }
                 else {
-                    curr_frame->ip = ip;
-                    runtime_error("Operand must be an int or a float.");
+                    VM_RUNTIME_ERROR("Operand must be an int or a float.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 VM_BREAK;
@@ -383,8 +391,7 @@ static InterpretResult vm_run() {
                     pop();
                 }
                 else {
-                    curr_frame->ip = ip;
-                    runtime_error("Operands must be 2 numbers or 2 strings.");
+                    VM_RUNTIME_ERROR("Operands must be 2 numbers or 2 strings.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 VM_BREAK;
@@ -404,13 +411,11 @@ static InterpretResult vm_run() {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_NUMBER(vb) || !IS_NUMBER(va)) {
-                    curr_frame->ip = ip;
-                    runtime_error("Operands must be 2 numbers.");
+                    VM_RUNTIME_ERROR("Operands must be 2 numbers.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 if (IS_INT(va) && IS_INT(vb) && AS_INT(vb) == 0) {
-                    curr_frame->ip = ip;
-                    runtime_error("Can't do integer division by 0.");
+                    VM_RUNTIME_ERROR("Can't do integer division by 0.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 vm.stack_top[-2] = BINARY_OP_RESULT(va, vb, FLOAT_VAL, INT_VAL, /);
@@ -422,14 +427,12 @@ static InterpretResult vm_run() {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
                 if (!IS_INT(vb) || !IS_INT(va)) {
-                    curr_frame->ip = ip;
-                    runtime_error("Operands for modulo must be 2 integers.");
+                    VM_RUNTIME_ERROR("Operands for modulo must be 2 integers.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 long b = AS_INT(vb);
                 if (b == 0) {
-                    curr_frame->ip = ip;
-                    runtime_error("Can't do integer modulo by 0.");
+                    VM_RUNTIME_ERROR("Can't do integer modulo by 0.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 vm.stack_top[-2] = INT_VAL(AS_INT(va) % b);
@@ -437,15 +440,21 @@ static InterpretResult vm_run() {
                 VM_BREAK;
             }
 
-            VM_CASE(OP_XOR) {
-                // a   b   a^b
-                // 0   0   0
-                // 0   1   1
-                // 1   0   1
-                // 1   1   0
+            VM_CASE(OP_POWER) {
                 IcoValue vb = peek(0);
                 IcoValue va = peek(1);
-                vm.stack_top[-2] = is_falsey(va) ? vb : BOOL_VAL(is_falsey(vb));
+                if (!IS_NUMBER(va) || !IS_NUMBER(vb)) {
+                    VM_RUNTIME_ERROR("Operands must be 2 numbers.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                // Use pow of <math.h> to perform power
+                vm.stack_top[-2] =
+                    IS_FLOAT(va) ?
+                        (IS_FLOAT(vb) ? FLOAT_VAL(pow(AS_FLOAT(va), AS_FLOAT(vb)))
+                                      : FLOAT_VAL(pow(AS_FLOAT(va), AS_INT(vb))))
+                      : (IS_FLOAT(vb) ? FLOAT_VAL(pow(AS_INT(va), AS_FLOAT(vb)))
+                                      : FLOAT_VAL(pow(AS_INT(va), AS_INT(vb))));
                 pop();
                 VM_BREAK;
             }
@@ -508,8 +517,7 @@ static InterpretResult vm_run() {
 
                 // Try to access the variable with this name
                 if (!table_get(&vm.globals, var_name, &value)) {
-                    curr_frame->ip = ip;
-                    runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
+                    VM_RUNTIME_ERROR("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -525,8 +533,7 @@ static InterpretResult vm_run() {
                 if (table_set(&vm.globals, var_name, peek((0)))) {
                     // If variable not already declared
                     table_delete(&vm.globals, var_name);
-                    curr_frame->ip = ip;
-                    runtime_error("Undefined variable '%s'.", AS_STRING(var_name)->chars);
+                    VM_RUNTIME_ERROR("Undefined variable '%s'.", AS_STRING(var_name)->chars);
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -643,6 +650,7 @@ static InterpretResult vm_run() {
 #undef VM_DISPATCH
 #undef VM_CASE
 #undef VM_BREAK
+#undef VM_RUNTIME_ERROR
 }
 
 //------------------------------

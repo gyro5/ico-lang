@@ -36,7 +36,7 @@ assignment -> (call ("." | "[" expr "]"))? IDENTIFIER "=" assignment | ternary ;
 
 ternary -> logical_or "?" logical_or ":" logical_or | logical_or ;
 
-logical_or -> logical_and (("|" | "^") logical_and)* ;
+logical_or -> logical_and ("|" logical_and)* ;
 
 logical_and -> equality ( "&" equality )* ;
 
@@ -48,7 +48,9 @@ term -> factor ( ( "-" | "+" ) factor )* ;
 
 factor -> unary ( ( "/" | "*" | "%" ) unary )* ;
 
-unary -> ( "!" | "-" ) unary | call ;
+unary -> ( "!" | "-" ) unary | power ;
+
+power -> call ("^" unary)? ; # Because unary can itself be power
 
 call -> primary ( "(" arguments? ")" | "." IDENTIFIER | "[" expr "]")* ;
 

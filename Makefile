@@ -3,6 +3,10 @@ CC := gcc
 # CFLAGS := -Wall -Wextra -Werror -Wno-unused-parameter -Wno-unused-function -std=c23
 CFLAGS := -Wall -Wextra -Wno-unused-parameter -Wno-unused-function
 
+# Library flags to link with libraries:
+# -lm: <math.h>
+LFLAGS := -lm
+
 # Flags for debug build
 DFLAGS := -g -Og -DDEBUG -std=c17 -DSWITCH_DISPATCH
 
@@ -47,7 +51,7 @@ release_ansi: build/ico_ansi
 # Debug build
 build/icod: $(DEBUG_OBJS)
 	@mkdir -p build
-	$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@
+	$(CC) $(CFLAGS) $(DFLAGS) $^ -o $@ $(LFLAGS)
 
 build/debug/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@mkdir -p build/debug
@@ -56,7 +60,7 @@ build/debug/%.o: $(SRC_DIR)/%.c $(HEADERS)
 # Release build
 build/ico: $(RELEASE_OBJS)
 	@mkdir -p build
-	$(CC) $(CFLAGS) ${GNU_RFLAGS} $^ -o $@
+	$(CC) $(CFLAGS) ${GNU_RFLAGS} $^ -o $@ $(LFLAGS)
 
 build/release/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@mkdir -p build/release
@@ -65,7 +69,7 @@ build/release/%.o: $(SRC_DIR)/%.c $(HEADERS)
 # Release build ANSI
 build/ico_ansi: $(RELEASE_ANSI_OBJS)
 	@mkdir -p build
-	$(CC) $(CFLAGS) ${ANSI_RFLAGS} $^ -o $@
+	$(CC) $(CFLAGS) ${ANSI_RFLAGS} $^ -o $@ $(LFLAGS)
 
 build/release_ansi/%.o: $(SRC_DIR)/%.c $(HEADERS)
 	@mkdir -p build/release_ansi
