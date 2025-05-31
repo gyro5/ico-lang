@@ -242,9 +242,6 @@ static InterpretResult vm_run() {
 // Get the next 2 bytes as an unsigned short
 #define READ_SHORT() (ip += 2, (uint16_t)((ip[-2] << 8) | ip[-1]))
 
-// Same as read_constant() but also convert to ObjString*
-#define READ_STRING() AS_STRING(READ_CONSTANT())
-
 // Exclusive to report runtime error in this function so that
 // we don't forget to save the ip back to the call frame.
 // Use C99's variadic macro.
@@ -643,7 +640,6 @@ static InterpretResult vm_run() {
 // Because these macros are only used in this function.
 #undef READ_NEXT_BYTE
 #undef READ_CONSTANT
-#undef READ_STRING
 #undef READ_SHORT
 #undef BINARY_OP
 #undef BINARY_OP_RESULT

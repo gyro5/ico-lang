@@ -1,7 +1,5 @@
-#include <stdio.h>
 #include <string.h>
 
-#include "ico_common.h"
 #include "ico_scanner.h"
 
 typedef struct {
@@ -311,6 +309,7 @@ Token scan_next_token() {
 }
 
 #ifdef DEBUG_PRINT_TOKEN
+#include <stdio.h>
 
 const char* token_names[] = {
     [TOKEN_VAR] = "TOKEN_VAR",
@@ -371,5 +370,4 @@ void print_token(Token token) {
     }
     fprintf(stderr, "\" %s\n", token_names[token.type]);
 }
-
 #endif

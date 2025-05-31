@@ -27,7 +27,7 @@ static Obj* allocate_object(size_t size, ObjType type) {
     vm.allocated_objs = obj;
 
 #ifdef DEBUG_LOG_GC
-    printf("%p allocate %zu for %d\n", (void*)object, size, type);
+    printf("%p allocate %zu for %d\n", (void*)obj, size, type);
 #endif
 
     return obj;

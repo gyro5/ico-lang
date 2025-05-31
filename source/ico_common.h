@@ -24,10 +24,10 @@
 // #endif
 
 #ifdef DEBUG // Will be enabled at the compile command
-// #define DEBUG_PRINT_BYTECODE
+#define DEBUG_PRINT_BYTECODE
 #define DEBUG_TRACE_EXECUTION
-// #define DEBUG_STRESS_GC
-// #define DEBUG_LOG_GC
+#define DEBUG_STRESS_GC
+#define DEBUG_LOG_GC
 #define DEBUG_PRINT_TOKEN
 #endif
 

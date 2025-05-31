@@ -1,6 +1,8 @@
 #ifndef ICO_SCANNER_H
 #define ICO_SCANNER_H
 
+#include "ico_common.h"
+
 typedef enum {
     // Single-character tokens
     TOKEN_VAR, // "$"
@@ -81,7 +83,9 @@ void init_scanner(const char* source_code);
 // Scan the source code and return the next token
 Token scan_next_token();
 
+#ifdef DEBUG_PRINT_TOKEN
 // Print a token in a specific format
 void print_token(Token token);
+#endif
 
 #endif // !SIMBOLO_SCANNER_H

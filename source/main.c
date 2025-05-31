@@ -3,14 +3,25 @@
 #include <string.h>
 
 #include "ico_common.h"
-#include "ico_object.h"
 #include "ico_vm.h"
-#include "ico_scanner.h"
-#include "ico_compiler.h"
 
-//------------------------------
-//      STATIC PROTOTYPES
-//------------------------------
+#define RUN_CODE(code) vm_interpret(code)
+
+#ifdef DEBUG_PRINT_TOKEN
+#include "ico_scanner.h"
+
+#undef RUN_CODE
+#define RUN_CODE(code) (scan_code(code), vm_interpret(code))
+
+static void scan_code(const char* code) {
+    init_scanner(code);
+    Token t;
+    do {
+        t = scan_next_token();
+        print_token(t);
+    } while (t.type != TOKEN_EOF);
+}
+#endif
 
 const char* repl_prompt[] = {
     [INTERPRET_IDLE] = COLOR_BOLD COLOR_BLUE "(o_o) " COLOR_RESET,
@@ -18,29 +29,6 @@ const char* repl_prompt[] = {
     [INTERPRET_COMPILE_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
     [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
 };
-
-#define run_code(code) vm_interpret(code)
-
-// #ifdef DEBUG_PRINT_TOKEN
-
-// #define run_code(code) scan_code(code)
-
-// static InterpretResult scan_code(const char* code) {
-//     init_scanner(code);
-
-//     Token t = scan_next_token();
-
-//     while (t.type != TOKEN_EOF) {
-//         print_token(t);
-//         t = scan_next_token();
-//     }
-
-//     compile(code);
-
-//     return INTERPRET_OK;
-// }
-
-// #endif
 
 // Run the Ico REPL
 static void run_repl() {
@@ -65,12 +53,11 @@ static void run_repl() {
             break;
         }
 
-        res = run_code(line);
+        res = RUN_CODE(line);
     }
 }
 
-// Read a Ico script and return a string containing
-// the source code
+// Read an Ico file and return a string containing the source code
 static char* read_file(const char* path) {
     // Open the source code file
     FILE* script = fopen(path, "rb");
@@ -112,7 +99,7 @@ static char* read_file(const char* path) {
 // Run a Ico script
 static void run_script(char* path) {
     char* source_code = read_file(path);
-    InterpretResult result = run_code(source_code);
+    InterpretResult result = RUN_CODE(source_code);
     free(source_code);
 
     if (result == INTERPRET_COMPILE_ERROR) {
