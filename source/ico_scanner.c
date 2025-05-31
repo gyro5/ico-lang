@@ -247,9 +247,9 @@ Token scan_next_token() {
         case ']': return make_token(TOKEN_RIGHT_SQUARE);
         case '.': return make_token(TOKEN_DOT);
         case ',': return make_token(TOKEN_COMMA);
-        case '|': return make_token(TOKEN_OR);
+        case '|': return make_token(TOKEN_PIPE);
         case '&': return make_token(TOKEN_AND);
-        case '^': return make_token(TOKEN_XOR);
+        case '^': return make_token(TOKEN_CARET);
         case '+': return make_token(TOKEN_PLUS);
         case '*': return make_token(TOKEN_STAR);
         case '%': return make_token(TOKEN_PERCENT);
