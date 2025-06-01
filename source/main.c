@@ -37,11 +37,11 @@ static void scan_code(const char* code) {
 #define GREEN_PROMPT(s) EL_PS COLOR_GREEN COLOR_BOLD EL_PE s EL_PS COLOR_RESET EL_PE " "
 #define BLUE_PROMPT(s)  EL_PS COLOR_BLUE COLOR_BOLD EL_PE s EL_PS COLOR_RESET EL_PE " "
 
-#define ICO_INIT_REPL(l)    rl_readline_name = "ico"; char* l
-#define ICO_READLINE(l)     ((l = readline(repl_prompt[res])) != NULL)
-#define ICO_SAVELINE(l)     if (*l) {add_history(l); fputc('\n', stdout);} \
-                            else {res = INTERPRET_IDLE;}
-#define ICO_FREELINE(l)     free(l)
+#define ICO_INIT_REPL(l)        rl_readline_name = "ico"; char* l
+#define ICO_READLINE(l)         ((l = readline(repl_prompt[res])) != NULL)
+#define ICO_NOT_EMPTY_LINE(l)   (*l)
+#define ICO_SAVELINE(l)         add_history(l)
+#define ICO_FREELINE(l)         free(l)
 
 /* Note:
 When the program prints right before a readline prompt, such as "hello(^_^) ",
@@ -55,10 +55,10 @@ Therefore, the '\n' in ICO_SAVELINE() above is required.*/
 #define GREEN_PROMPT(s) COLOR_GREEN COLOR_BOLD s COLOR_RESET " "
 #define BLUE_PROMPT(s)  COLOR_BLUE COLOR_BOLD s COLOR_RESET " "
 
-#define ICO_INIT_REPL(l)    char l[1024];
-#define ICO_READLINE(l)     (fputs(repl_prompt[res], stdout), fgets(l, sizeof(l), stdin))
-#define ICO_SAVELINE(l)     if (l[0] == '\n' && l[1] == '\0') res = INTERPRET_IDLE; \
-                            else fputc('\n', stdout)
+#define ICO_INIT_REPL(l)        char l[1024];
+#define ICO_READLINE(l)         (fputs(repl_prompt[res], stdout), fgets(l, sizeof(l), stdin))
+#define ICO_NOT_EMPTY_LINE(l)   (!(l[0] == '\n' && l[1] == '\0'))
+#define ICO_SAVELINE(l)
 #define ICO_FREELINE(l)
 
 #endif // USE_LIBEDIT
@@ -85,14 +85,21 @@ static void run_repl() {
     // The REPL loop
     InterpretResult res = INTERPRET_IDLE;
     ICO_INIT_REPL(line);
-    while (ICO_READLINE(line)) {    // Read
-        printf(COLOR_CYAN);
-        res = RUN_CODE(line);       // Eval
-        vm_print_stored_val();      // Print
-        printf(COLOR_RESET);
-        ICO_SAVELINE(line);
+    while (ICO_READLINE(line)) {                        // Read
+        if (ICO_NOT_EMPTY_LINE(line)) {
+            printf(COLOR_CYAN);
+            res = RUN_CODE(line);                       // Eval
+            vm_print_stored_val();                      // Print
+            // See above for explanation of "\n"
+            printf(COLOR_RESET "\n");
+            ICO_SAVELINE(line);
+        }
+        else { // Empty line
+            res = INTERPRET_IDLE;
+        }
+
         ICO_FREELINE(line);
-    }                               // Loop
+    }
 
     // Exit the REPL with Ctrl-D
     printf(COLOR_BOLD COLOR_BLUE"\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
