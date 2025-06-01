@@ -1160,6 +1160,9 @@ ObjFunction* compile(const char *source_code) {
     // Parsing declaration-level statements until EOF
     while (!match_next_token(TOKEN_EOF)) {
         parse_declaration();
+
+        // Allow arbitrarily many semicolon after a statement
+        while (match_next_token(TOKEN_SEMICOLON));
     }
 
     // End of the compiling process

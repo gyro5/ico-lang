@@ -6,6 +6,7 @@ typedef struct {
     const char* start; // Pointer to start of the current lexeme
     const char* current; // Pointer to current character being looked at
     int line_num; // Line number
+    bool eof_once;
 } Scanner;
 
 // Global "singleton" variable, similar to the VM
@@ -205,6 +206,7 @@ void init_scanner(const char *source_code) {
     sc.start = source_code;
     sc.current = source_code;
     sc.line_num = 1;
+    sc.eof_once = false;
 }
 
 Token scan_next_token() {
@@ -216,7 +218,13 @@ Token scan_next_token() {
 
     // Check for end of file
     if (is_at_end()) {
-        return make_token(TOKEN_EOF);
+        if (sc.eof_once) {
+            return make_token(TOKEN_EOF);
+        }
+        else {
+            sc.eof_once = true;
+            return make_token(TOKEN_SEMICOLON);
+        }
     }
 
     // Get the next char and advance sc.current
