@@ -21,42 +21,80 @@ static void scan_code(const char* code) {
         print_token(t);
     } while (t.type != TOKEN_EOF);
 }
-#endif
+#endif // DEBUG_PRINT_TOKEN
+
+#ifdef USE_LIBEDIT
+
+#include <editline/readline.h>
+
+// Need to make these because the one provided by editline are char literals
+// which cannot be concatenated with string literals
+#define EL_PS "\1"   // RL_PROMPT_START_IGNORE '\1'
+#define EL_PE "\2"   // RL_PROMPT_END_IGNORE '\2'
+
+// Libedit needs a space " " at the end to actually reset the colors
+#define RED_PROMPT(s)   EL_PS COLOR_RED COLOR_BOLD EL_PE s EL_PS COLOR_RESET EL_PE " "
+#define GREEN_PROMPT(s) EL_PS COLOR_GREEN COLOR_BOLD EL_PE s EL_PS COLOR_RESET EL_PE " "
+#define BLUE_PROMPT(s)  EL_PS COLOR_BLUE COLOR_BOLD EL_PE s EL_PS COLOR_RESET EL_PE " "
+
+#define ICO_INIT_REPL(l)    rl_readline_name = "ico"; char* l
+#define ICO_READLINE(l)     ((l = readline(repl_prompt[res])) != NULL)
+#define ICO_SAVELINE(l)     if (*l) {add_history(l); fputc('\n', stdout);} \
+                            else {res = INTERPRET_IDLE;}
+#define ICO_FREELINE(l)     free(l)
+
+/* Note:
+When the program prints right before a readline prompt, such as "hello(^_^) ",
+the editing behaviour is bugged, ie. when the user types in then deletes, the
+prompt is deleted too, possibly due to incorrect cursor calculation.
+Therefore, the '\n' in ICO_SAVELINE() above is required.*/
+
+#else // Non libedit version
+
+#define RED_PROMPT(s)   COLOR_RED COLOR_BOLD s COLOR_RESET " "
+#define GREEN_PROMPT(s) COLOR_GREEN COLOR_BOLD s COLOR_RESET " "
+#define BLUE_PROMPT(s)  COLOR_BLUE COLOR_BOLD s COLOR_RESET " "
+
+#define ICO_INIT_REPL(l)    char l[1024];
+#define ICO_READLINE(l)     (fputs(repl_prompt[res], stdout), fgets(l, sizeof(l), stdin))
+#define ICO_SAVELINE(l)     if (l[0] == '\n' && l[1] == '\0') res = INTERPRET_IDLE; \
+                            else fputc('\n', stdout)
+#define ICO_FREELINE(l)
+
+#endif // USE_LIBEDIT
 
 const char* repl_prompt[] = {
-    [INTERPRET_IDLE] = COLOR_BOLD COLOR_BLUE "(o_o) " COLOR_RESET,
-    [INTERPRET_OK] = COLOR_BOLD COLOR_GREEN "(^_^) " COLOR_RESET,
-    [INTERPRET_COMPILE_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
-    [INTERPRET_RUNTIME_ERROR] = COLOR_BOLD COLOR_RED "(-_-) " COLOR_RESET,
+    [INTERPRET_IDLE] = BLUE_PROMPT("(o_o)"),
+    [INTERPRET_OK] = GREEN_PROMPT("(^_^)"),
+    [INTERPRET_COMPILE_ERROR] = RED_PROMPT("(-_-)"),
+    [INTERPRET_RUNTIME_ERROR] = RED_PROMPT("(-_-)"),
 };
 
 // Run the Ico REPL
 static void run_repl() {
-    // To hold the current line of REPL code.
-    // Limit the line size to 1024 for simplicity's sake.
-    char line[1024];
-    InterpretResult res = INTERPRET_IDLE;
-
+    // Print the REPL start
     printf(COLOR_BOLD "Ico Interactive REPL.\n" COLOR_RESET
            "- %s: Idle\n"
            "- %s: Success\n"
            "- %s: Errors\n",
            repl_prompt[INTERPRET_IDLE],
            repl_prompt[INTERPRET_OK],
-           repl_prompt[INTERPRET_COMPILE_ERROR]);
+           repl_prompt[INTERPRET_COMPILE_ERROR]
+    );
 
-    for (;;) {
-        printf("\n%s", repl_prompt[res]);
-
-        if (!fgets(line, sizeof(line), stdin)) {
-            printf(COLOR_BOLD COLOR_BLUE"\n\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
-            break;
-        }
-
+    // The REPL loop
+    InterpretResult res = INTERPRET_IDLE;
+    ICO_INIT_REPL(line);
+    while (ICO_READLINE(line)) {
         printf(COLOR_CYAN);
         res = RUN_CODE(line);
         printf(COLOR_RESET);
+        ICO_SAVELINE(line);
+        ICO_FREELINE(line);
     }
+
+    // Exit the REPL with Ctrl-D
+    printf(COLOR_BOLD COLOR_BLUE"\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
 }
 
 // Read an Ico file and return a string containing the source code
