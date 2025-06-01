@@ -170,10 +170,12 @@ ObjClosure* new_closure_obj(ObjFunction* function) {
     return closure;
 }
 
-ObjNative* new_native_func_obj(NativeFn c_func) {
+ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name) {
     ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
     native->function = c_func;
     ((Obj*)native)->hash = hash_address(native);
+    native->arity = arity;
+    native->name = name;
     return native;
 }
 
@@ -199,7 +201,7 @@ void print_object(IcoValue val) {
             break;
 
         case OBJ_NATIVE:
-            printf("<native fn>");
+            printf("<native fn %s()>", AS_NATIVE(val)->name->chars);
             break;
     }
 }

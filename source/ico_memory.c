@@ -85,6 +85,7 @@ static void free_one_object(Obj* obj) {
 
         case OBJ_NATIVE: {
             FREE(ObjNative, obj);
+            // Don't free the name as it is interned.
             break;
         }
     }
@@ -143,7 +144,7 @@ void mark_object(Obj* obj) {
     // if the object type has references to other Objs.
     obj->is_marked = true;
     switch (obj->type) {
-        case OBJ_STRING: case OBJ_NATIVE:
+        case OBJ_STRING:
             // These types don't have any reference --> Don't add to gray stack
             break;
 
@@ -221,6 +222,15 @@ static void blacken_one_object(Obj* obj) {
             for (int i = 0; i < closure->upvalue_count; i++) {
                 mark_object((Obj*)closure->upvalues[i]);
             }
+
+            break;
+        }
+
+        case OBJ_NATIVE: {
+            ObjNative* native = (ObjNative*)obj;
+
+            // Mark the name
+            mark_object((Obj*)native->name);
 
             break;
         }

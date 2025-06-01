@@ -101,10 +101,11 @@ static void runtime_error(const char* format_str, ...) {
 
 // Define a new native function and add it and its name
 // as value and key to the hash table of global variables.
-static void define_native_func(const char* name, NativeFn func) {
+static void define_native_func(const char* name, NativeFn func, int arity) {
     // Need to push then pop immediately due to garbage collection
-    push(OBJ_VAL(copy_and_create_str_obj(name, (int)strlen(name))));
-    push(OBJ_VAL(new_native_func_obj(func)));
+    ObjString* name_obj = copy_and_create_str_obj(name, (int)strlen(name));
+    push(OBJ_VAL(name_obj));
+    push(OBJ_VAL(new_native_func_obj(func, arity, name_obj)));
     table_set(&vm.globals, vm.stack[0], vm.stack[1]);
     pop();
     pop();
@@ -143,9 +144,15 @@ static bool call_value(IcoValue callee, int arg_count) {
                 return call_obj_closure(AS_CLOSURE(callee), arg_count);
 
             case OBJ_NATIVE: {
-                NativeFn c_func = AS_NATIVE_C_FUNC(callee);
+                ObjNative* native = AS_NATIVE(callee);
+                if (arg_count != native->arity) {
+                    runtime_error("Expect %d arguments but got %d.",
+                        native->arity, arg_count);
+                    return false;
+                }
 
                 // Call the C function
+                NativeFn c_func = AS_NATIVE_C_FUNC(callee);
                 IcoValue ret_val = c_func(arg_count, vm.stack_top - arg_count);
                 if (IS_ERROR(ret_val)) {
                     runtime_error(AS_ERROR(ret_val));
@@ -709,8 +716,8 @@ void init_vm(bool is_repl) {
     init_table(&vm.strings); // table for string interning
 
     // Add native functions
-    define_native_func("clock", clock_native);
-    define_native_func("floor", floor_native);
+    define_native_func("clock", clock_native, 0);
+    define_native_func("floor", floor_native, 1);
 }
 
 void free_vm() {

@@ -81,7 +81,8 @@ typedef IcoValue (*NativeFn)(int arg_count, IcoValue* args);
 typedef struct {
     Obj obj;
     NativeFn function;
-    // TODO add arity
+    int arity;
+    ObjString* name;
 } ObjNative;
 
 // Get the obj type tag from a Value
@@ -105,6 +106,7 @@ static inline bool is_obj_type(IcoValue val, ObjType target_type) {
 #define AS_C_STRING(val)        (((ObjString*)AS_OBJ(val))->chars)
 #define AS_FUNCTION(val)        ((ObjFunction*)AS_OBJ(val))
 #define AS_CLOSURE(val)         ((ObjClosure*)AS_OBJ(val))
+#define AS_NATIVE(val)          ((ObjNative*)AS_OBJ(val))
 #define AS_NATIVE_C_FUNC(val)   (((ObjNative*)AS_OBJ(val))->function)
 
 // Create a ObjString by copying the content of a C string
@@ -125,7 +127,7 @@ ObjFunction* new_function_obj();
 ObjClosure* new_closure_obj(ObjFunction* function);
 
 // Create a new ObjNative from a C function of type NativeFn
-ObjNative* new_native_func_obj(NativeFn c_func);
+ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name);
 
 // Print an Obj (which is a Value)
 void print_object(IcoValue val);
