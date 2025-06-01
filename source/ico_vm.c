@@ -111,7 +111,7 @@ static void define_native_func(const char* name, NativeFn func) {
 }
 
 // Helper function to actually set up a function call.
-static bool call_helper(ObjClosure* closure, int arg_count) {
+static bool call_obj_closure(ObjClosure* closure, int arg_count) {
     // Check arity
     if (arg_count != closure->function->arity) {
         runtime_error("Expect %d arguments but got %d.",
@@ -140,14 +140,17 @@ static bool call_value(IcoValue callee, int arg_count) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
             case OBJ_CLOSURE:
-                return call_helper(AS_CLOSURE(callee), arg_count);
+                return call_obj_closure(AS_CLOSURE(callee), arg_count);
 
             case OBJ_NATIVE: {
                 NativeFn c_func = AS_NATIVE_C_FUNC(callee);
 
                 // Call the C function
                 IcoValue ret_val = c_func(arg_count, vm.stack_top - arg_count);
-                // TODO check for error value (aka mechanism to error from native)
+                if (IS_ERROR(ret_val)) {
+                    runtime_error(AS_ERROR(ret_val));
+                    return false;
+                }
 
                 // Discard the "call frame" (which only has arguments)
                 // and push the return value back
@@ -660,6 +663,19 @@ static IcoValue clock_native(int arg_count, IcoValue* args) {
     return FLOAT_VAL((double)clock() / CLOCKS_PER_SEC);
 }
 
+static IcoValue floor_native(int arg_count, IcoValue* args) {
+    IcoValue v = args[0];
+    if (IS_FLOAT(v)) {
+        return INT_VAL((long)floor(AS_FLOAT(v)));
+    }
+    else if (IS_INT(v)) {
+        return v;
+    }
+    else {
+        return ERROR_VAL("Can't floor non-number values.");
+    }
+}
+
 //------------------------------
 //      HEADER FUNCTIONS
 //------------------------------
@@ -694,6 +710,7 @@ void init_vm(bool is_repl) {
 
     // Add native functions
     define_native_func("clock", clock_native);
+    define_native_func("floor", floor_native);
 }
 
 void free_vm() {
@@ -712,7 +729,7 @@ InterpretResult vm_interpret(const char *source_code) {
     ObjClosure* top_level_closure = new_closure_obj(top_level_func);
     pop();
     push(OBJ_VAL(top_level_closure));
-    call_helper(top_level_closure, 0);
+    call_obj_closure(top_level_closure, 0);
 
     return vm_run();
 }
