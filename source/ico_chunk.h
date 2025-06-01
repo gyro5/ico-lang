@@ -52,6 +52,8 @@ typedef enum {
     OP_GET_UPVALUE,
     OP_SET_UPVALUE,
     OP_CLOSE_UPVALUE,   // [op_close_upvalue]: Hoist the local var at stack top to the heap
+
+    OP_STORE_VAL,       // [op_store_val]: store value in the VM struct (internal)
 } OpCode;
 
 typedef struct {

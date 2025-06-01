@@ -30,6 +30,8 @@ typedef struct {
     int gray_capacity;                  // GC: capacity of the gray stack
     size_t bytes_allocated;             // GC: Number of bytes allocated
     size_t next_gc_run;                 // GC: Threshold for next GC run
+    bool is_repl;                       // REPL: will be true if in REPL
+    IcoValue stored_val;                // REPL: the final value of a REPL iteration
 } VM;
 
 // Enum for interpreter result or REPL state.
@@ -45,13 +47,16 @@ typedef enum {
 extern VM vm;
 
 // Initialize a VM
-void init_vm();
+void init_vm(bool is_repl);
+
+// Tear down a VM
+void free_vm();
 
 // Interpret a string of Ico source code
 InterpretResult vm_interpret(const char* source_code);
 
-// Tear down a VM
-void free_vm();
+// Print the stored value and reset it
+void vm_print_stored_val();
 
 // Push a Value on the VM's stack
 void push(IcoValue val);

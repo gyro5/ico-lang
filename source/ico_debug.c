@@ -205,6 +205,9 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_CLOSE_UPVALUE:
             return simple_instruction("OP_CLOSE_UPVALUE", offset);
 
+        case OP_STORE_VAL:
+            return simple_instruction("OP_STORE_VAL", offset);
+
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

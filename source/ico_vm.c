@@ -632,6 +632,11 @@ b is popped first because of LIFO.*/
                 pop();
                 VM_BREAK;
             }
+
+            VM_CASE(OP_STORE_VAL) {
+                vm.stored_val = pop();
+                VM_BREAK;
+            }
         }
     }
 
@@ -662,7 +667,7 @@ static IcoValue clock_native(int arg_count, IcoValue* args) {
 // The global VM variable/object
 VM vm;
 
-void init_vm() {
+void init_vm(bool is_repl) {
     // This function will be used by main.c
 
     reset_stack();
@@ -678,6 +683,10 @@ void init_vm() {
     // Initialize the GC trigger
     vm.bytes_allocated = 0;
     vm.next_gc_run = 1024 * 1024; // Arbitrarily chosen -> See book/notebook
+
+    // Is REPL?
+    vm.is_repl = is_repl;
+    vm.stored_val = ERROR_VAL(NULL);
 
     // Initialize the hash tables
     init_table(&vm.globals); // table of global variables
@@ -706,6 +715,11 @@ InterpretResult vm_interpret(const char *source_code) {
     call_helper(top_level_closure, 0);
 
     return vm_run();
+}
+
+void vm_print_stored_val() {
+    if (!IS_ERROR(vm.stored_val)) print_value(vm.stored_val);
+    vm.stored_val = ERROR_VAL(NULL);
 }
 
 /*

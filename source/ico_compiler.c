@@ -856,7 +856,7 @@ static void end_scope() {
 static void parse_expression_stmt() {
     parse_expression();
     consume_mandatory(TOKEN_SEMICOLON, "Expect ';' after expression.");
-    emit_byte(OP_POP); // TODO change to OP_PRINT when REPL
+    emit_byte(vm.is_repl ? OP_STORE_VAL : OP_POP);
 }
 
 // Parse and compile an if statement.

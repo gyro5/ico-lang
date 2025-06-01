@@ -85,13 +85,14 @@ static void run_repl() {
     // The REPL loop
     InterpretResult res = INTERPRET_IDLE;
     ICO_INIT_REPL(line);
-    while (ICO_READLINE(line)) {
+    while (ICO_READLINE(line)) {    // Read
         printf(COLOR_CYAN);
-        res = RUN_CODE(line);
+        res = RUN_CODE(line);       // Eval
+        vm_print_stored_val();      // Print
         printf(COLOR_RESET);
         ICO_SAVELINE(line);
         ICO_FREELINE(line);
-    }
+    }                               // Loop
 
     // Exit the REPL with Ctrl-D
     printf(COLOR_BOLD COLOR_BLUE"\n(-.-)/"COLOR_RESET" ~( Bye! )\n");
@@ -155,13 +156,12 @@ static void run_script(char* path) {
 //------------------------------
 
 int main(int argc, char *argv[]) {
-    init_vm();
-
-    // Script mode or REPL mode
-    if (argc == 1) {
+    if (argc == 1) { // REPL mode
+        init_vm(true);
         run_repl();
     }
-    else if (argc == 2) {
+    else if (argc == 2) { // Script mode
+        init_vm(false);
         run_script(argv[1]);
     }
     else {
