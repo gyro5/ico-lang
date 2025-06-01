@@ -4,6 +4,8 @@ This file lists the license for third-party projects and libraries that are used
 
 ## clox interpreter from Crafting Interpreters
 
+The clox interpreter was used as the initial base for this project.
+
 URL: [https://github.com/munificent/craftinginterpreters](https://github.com/munificent/craftinginterpreters)
 
 ```
@@ -28,6 +30,8 @@ IN THE SOFTWARE.
 
 ## Lua Language
 
+Though not used directly, some parts of this project's code were inspired by the Lua source code.
+
 URL: [https://www.lua.org](https://www.lua.org)
 
 License:
@@ -43,6 +47,8 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 ```
 
 ## Libedit Line editor
+
+The Ico interpreter can optionally link with the libedit library to provide line editor functionalities. This is enabled by default in the Makefile.
 
 URL: [https://www.thrysoee.dk/editline/](https://www.thrysoee.dk/editline/)
 
