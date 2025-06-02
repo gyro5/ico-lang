@@ -48,4 +48,5 @@ static const void* const label_table[] = {
     [OP_SET_UPVALUE] = &&L_OP_SET_UPVALUE,
     [OP_CLOSE_UPVALUE] = &&L_OP_CLOSE_UPVALUE,
     [OP_STORE_VAL] = &&L_OP_STORE_VAL,
+    [OP_READ] = &&L_OP_READ,
 };

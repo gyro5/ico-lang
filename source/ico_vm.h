@@ -8,6 +8,7 @@
 
 #define FRAMES_MAX 64 // Maximum call depth
 #define STACK_MAX (FRAMES_MAX * UINT8_COUNT)
+#define USER_INPUT_BUFF_SIZE 1024
 
 typedef struct {
     ObjClosure* closure;

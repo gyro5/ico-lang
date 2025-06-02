@@ -42,6 +42,11 @@ _Static_assert( sizeof(IcoValue) <= 16,
 #define TRUE_HASH (uint32_t)2231767820
 #define FALSE_HASH (uint32_t)2248545439
 
+// For read instruction
+#define R_STRING    (uint8_t)0
+#define R_NUM       (uint8_t)1
+#define R_BOOL      (uint8_t)2
+
 // Macros to convert native C values to Ico Value
 #define BOOL_VAL(b)     ((IcoValue){VAL_BOOL, false, {.boolean = b}})
 #define NULL_VAL        ((IcoValue){VAL_NULL, false, {.num_int = 0}})

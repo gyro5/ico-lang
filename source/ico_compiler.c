@@ -103,7 +103,7 @@ static void parse_variable(bool can_assign);
 static void parse_string_literal(bool can_assign);
 static void parse_int_literal(bool can_assign);
 static void parse_float_literal(bool can_assign);
-static void parse_literal(bool can_assign);
+static void parse_null_bool_read(bool can_assign);
 static void parse_func_literal(bool can_assign);
 static void parse_and(bool can_assign);
 static void parse_or(bool can_assign);
@@ -133,20 +133,20 @@ ParseRule parse_rules[] = {
     [TOKEN_PLUS]            = {NULL, parse_binary, PREC_TERM},
     [TOKEN_STAR]            = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_PERCENT]         = {NULL, parse_binary, PREC_FACTOR},
-    [TOKEN_NULL]            = {parse_literal, NULL, PREC_NONE},
+    [TOKEN_NULL]            = {parse_null_bool_read, NULL, PREC_NONE},
     [TOKEN_EQUAL]           = {NULL, NULL, PREC_NONE},
     [TOKEN_EQUAL_EQUAL]     = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_BANG]            = {parse_unary, NULL, PREC_NONE},
     [TOKEN_BANG_EQUAL]      = {NULL, parse_binary, PREC_EQUALITY},
     [TOKEN_COLON]           = {NULL, NULL, PREC_NONE},
-    [TOKEN_TRUE]            = {parse_literal, NULL, PREC_NONE},
-    [TOKEN_FALSE]           = {parse_literal, NULL, PREC_NONE},
+    [TOKEN_TRUE]            = {parse_null_bool_read, NULL, PREC_NONE},
+    [TOKEN_FALSE]           = {parse_null_bool_read, NULL, PREC_NONE},
     [TOKEN_LESS]            = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_LESS_EQUAL]      = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_RETURN]          = {NULL, NULL, PREC_NONE},
-    [TOKEN_READ]            = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_READ_BOOL]       = {NULL, NULL, PREC_NONE}, // TODO // TODO
-    [TOKEN_READ_NUM]        = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_READ]            = {parse_null_bool_read, NULL, PREC_NONE},
+    [TOKEN_READ_BOOL]       = {parse_null_bool_read, NULL, PREC_NONE},
+    [TOKEN_READ_NUM]        = {parse_null_bool_read, NULL, PREC_NONE},
     [TOKEN_SLASH]           = {NULL, parse_binary, PREC_FACTOR},
     [TOKEN_UP_TRIANGLE]     = {parse_func_literal, NULL, PREC_NONE},
     [TOKEN_BACK_SLASH]      = {NULL, NULL, PREC_NONE},
@@ -486,11 +486,14 @@ static void parse_float_literal(bool can_assign) {
 }
 
 // Parse and compile a boolean or nil literal.
-static void parse_literal(bool can_assign) {
+static void parse_null_bool_read(bool can_assign) {
     switch (parser.prev_token.type) {
-        case TOKEN_FALSE: emit_byte(OP_FALSE); break;
-        case TOKEN_NULL:  emit_byte(OP_NULL); break;
-        case TOKEN_TRUE:  emit_byte(OP_TRUE); break;
+        case TOKEN_FALSE:       emit_byte(OP_FALSE); break;
+        case TOKEN_NULL:        emit_byte(OP_NULL); break;
+        case TOKEN_TRUE:        emit_byte(OP_TRUE); break;
+        case TOKEN_READ:        emit_two_bytes(OP_READ, R_STRING); break;
+        case TOKEN_READ_NUM:    emit_two_bytes(OP_READ, R_NUM); break;
+        case TOKEN_READ_BOOL:   emit_two_bytes(OP_READ, R_BOOL); break;
 
         default: return; // Unreachable
     }

@@ -3,6 +3,7 @@
 #include <string.h>
 #include <time.h>
 #include <math.h>
+#include <ctype.h>
 
 #include "ico_common.h"
 #include "ico_vm.h"
@@ -235,6 +236,9 @@ static InterpretResult vm_run() {
     is a call (see OP_CALL) or a runtime error (as runtime_error uses
     frame.ip to report errors) (see VM_RUNTIME_ERROR macro belows). */
     register uint8_t* ip = curr_frame->ip;
+
+    // Buffer to store user input
+    char buffer[USER_INPUT_BUFF_SIZE];
 
 #ifdef  DEBUG_TRACE_EXECUTION
     printf("\n============ Execution Trace =============\n");
@@ -645,6 +649,89 @@ b is popped first because of LIFO.*/
 
             VM_CASE(OP_STORE_VAL) {
                 vm.stored_val = pop();
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_READ) {
+                // Read user input into the buffer
+                printf(COLOR_RESET);
+                if (!fgets(buffer, USER_INPUT_BUFF_SIZE, stdin)) {
+                    VM_RUNTIME_ERROR("Error while reading input.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                printf(REPL_OUTPUT_COLOR);
+                int length = (int)strlen(buffer);
+
+                // Remove the trailing newline
+                if (buffer[length - 1] == '\n') buffer[--length] = '\0';
+
+                switch (READ_NEXT_BYTE()) {
+                    case R_STRING: {
+                        ObjString* str = copy_and_create_str_obj(buffer, length);
+                        push(OBJ_VAL(str));
+                        break;
+                    }
+
+                    case R_NUM: {
+                        bool is_float = false;
+                        char* c = buffer;
+
+                        while (isspace(*c)) c++; // skip whitespaces
+                        if (c == buffer + length) {
+                            VM_RUNTIME_ERROR("No input found.");
+                            return INTERPRET_RUNTIME_ERROR;
+                        }
+
+                        // Check for valid number
+                        while (c < buffer + length) {
+                            if (*c == '.') is_float = true;
+                            else if (!isdigit(*c)) {
+                                VM_RUNTIME_ERROR("Expect input to be a number.");
+                                return INTERPRET_RUNTIME_ERROR;
+                            }
+                            c++;
+                        }
+
+                        if (is_float) {
+                            printf("TODO read number");
+                        }
+
+                        break;
+                    }
+
+                    case R_BOOL: {
+                        char* c = buffer;
+                        while (isspace(*c)) c++; // skip whitespaces
+                        if (c == buffer + length || length - (c - buffer) > 5) {
+                            VM_RUNTIME_ERROR("Expect one of 'yes', 'no', 'true', 'false', ':)', ':('.");
+                            return INTERPRET_RUNTIME_ERROR;
+                        }
+                        switch (*c) {
+                            case 'y': case 't': push(BOOL_VAL(true)); break;
+                            case 'n': case 'f': push(BOOL_VAL(false)); break;
+                            case ':':
+                                if (c[1] == ')') {
+                                    push(BOOL_VAL(true));
+                                    break;
+                                }
+                                if (c[1] == '(') {
+                                    push(BOOL_VAL(false));
+                                    break;
+                                }
+                                // fallthrough
+                            default:
+                                VM_RUNTIME_ERROR("Expect one of 'yes', 'no', 'true', 'false', ':)', ':('.");
+                                return INTERPRET_RUNTIME_ERROR;
+                        }
+                        break;
+                    }
+
+                    default: {
+                        VM_RUNTIME_ERROR("Unexpected read type, possibly due to bad compilation.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+
                 VM_BREAK;
             }
         }
