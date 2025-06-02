@@ -13,6 +13,8 @@
 #define COLOR_BOLD    "\e[1m"
 #define COLOR_RESET   "\e[0m"
 
+#define REPL_OUTPUT_COLOR COLOR_CYAN
+
 #define UINT8_COUNT (UINT8_MAX + 1)
 
 // Recent GCC version still supports this even if "-std=c23" is not set
