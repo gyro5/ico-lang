@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdarg.h>
+#include <stdlib.h>
 #include <string.h>
 #include <time.h>
 #include <math.h>
@@ -673,29 +674,24 @@ b is popped first because of LIFO.*/
                     }
 
                     case R_NUM: {
-                        bool is_float = false;
-                        char* c = buffer;
+                        char* f_end = buffer;
+                        char* i_end = buffer;
 
-                        while (isspace(*c)) c++; // skip whitespaces
-                        if (c == buffer + length) {
-                            VM_RUNTIME_ERROR("No input found.");
+                        // Attempt to parse both float and int
+                        double d = strtod(buffer, &f_end);
+                        long l = strtol(buffer, &i_end, 10);
+
+                        if (f_end == buffer) {
+                            VM_RUNTIME_ERROR("Expect a number input.");
                             return INTERPRET_RUNTIME_ERROR;
                         }
 
-                        // Check for valid number
-                        while (c < buffer + length) {
-                            if (*c == '.') is_float = true;
-                            else if (!isdigit(*c)) {
-                                VM_RUNTIME_ERROR("Expect input to be a number.");
-                                return INTERPRET_RUNTIME_ERROR;
-                            }
-                            c++;
+                        if (f_end == i_end) {
+                            push(INT_VAL(l));
                         }
-
-                        if (is_float) {
-                            printf("TODO read number");
+                        else {
+                            push(FLOAT_VAL(d));
                         }
-
                         break;
                     }
 
