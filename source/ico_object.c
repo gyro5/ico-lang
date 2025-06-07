@@ -172,11 +172,18 @@ ObjClosure* new_closure_obj(ObjFunction* function) {
 
 ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name) {
     ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
-    native->function = c_func;
     ((Obj*)native)->hash = hash_address(native);
+    native->function = c_func;
     native->arity = arity;
     native->name = name;
     return native;
+}
+
+ObjList* new_list_obj() {
+    ObjList* list = ALLOCATE_OBJ(ObjList, OBJ_LIST);
+    ((Obj*)list)->hash = hash_address(list);
+    init_value_array(&list->array);
+    return list;
 }
 
 void print_object(IcoValue val) {
@@ -203,5 +210,24 @@ void print_object(IcoValue val) {
         case OBJ_NATIVE:
             printf("<native fn %s()>", AS_NATIVE(val)->name->chars);
             break;
+
+        case OBJ_LIST: {
+            ObjList* list = AS_LIST(val);
+            if (list->array.size == 0) {
+                printf("[]");
+            }
+            else {
+                fputc('[', stdout);
+                print_value(list->array.values[0]);
+                int i = 1;
+                while (i < list->array.size) {
+                    printf(", ");
+                    print_value(list->array.values[i]);
+                    i++;
+                }
+                fputc(']', stdout);
+            }
+            break;
+        }
     }
 }

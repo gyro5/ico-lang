@@ -88,6 +88,12 @@ static void free_one_object(Obj* obj) {
             // Don't free the name as it is interned.
             break;
         }
+
+        case OBJ_LIST: {
+            ObjList* list = (ObjList*)obj;
+            free_value_array(&list->array);
+            break;
+        }
     }
 }
 
@@ -231,6 +237,15 @@ static void blacken_one_object(Obj* obj) {
 
             // Mark the name
             mark_object((Obj*)native->name);
+
+            break;
+        }
+
+        case OBJ_LIST: {
+            ObjList* list = (ObjList*)obj;
+
+            // Mark all value in the list
+            mark_value_array(&list->array);
 
             break;
         }

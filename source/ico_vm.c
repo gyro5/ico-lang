@@ -65,6 +65,22 @@ static void concat_strings() {
     push(OBJ_VAL(result_obj));
 }
 
+// Get the substring from start to end (INCLUSIVE) of the string
+// at stack top and push it on the stack.
+static void get_substring(int start, int end) {
+    ObjString* str = AS_STRING(peek(0));
+
+    // Populate the new ObjString
+    int substring_length = end - start + 1;
+    char* substring_chars = ALLOCATE(char, substring_length + 1); // +1 for the '\0'
+    memcpy(substring_chars, str->chars + start, substring_length);
+    substring_chars[substring_length] = '\0';
+
+    ObjString* result_obj = take_own_and_create_str_obj(substring_chars, substring_length);
+    pop();
+    push(OBJ_VAL(result_obj));
+}
+
 // Report a runtime error with a format string as the error message
 static void runtime_error(const char* format_str, ...) {
     fprintf(stderr, COLOR_RED); // Errors printed in red
@@ -726,6 +742,76 @@ b is popped first because of LIFO.*/
                         VM_RUNTIME_ERROR("Unexpected read type, possibly due to bad compilation.");
                         return INTERPRET_RUNTIME_ERROR;
                     }
+                }
+
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_POPULATE_LIST) {
+                int elem_count = READ_NEXT_BYTE();
+
+                // Retrieve the list from the stack
+                ObjList* list = AS_LIST(vm.stack_top[- elem_count - 1]);
+
+                // Append all values to the list
+                IcoValue* elems = vm.stack_top - elem_count;
+                while (elems < vm.stack_top) {
+                    append_value_array(&list->array, *elems++);
+                }
+
+                // Pop all elements
+                vm.stack_top -= elem_count;
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_ACCESS) {
+                // Stack should be: ...[obj][idx] <- top
+                IcoValue index = peek(0);
+                IcoValue container = peek(1);
+
+                if (IS_LIST(container)) { // ObjList
+                    ObjList* list = AS_LIST(container);
+
+                    // Checking the index
+                    if (!IS_INT(index)) {
+                        VM_RUNTIME_ERROR("Index of a list must be an int.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    long i = AS_INT(index);
+                    int size = list->array.size;
+                    if (i >= size || i < -size) {
+                        VM_RUNTIME_ERROR("Index %d out of range for list of size %d.", (int)i, size);
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    // Valid index
+                    vm.stack_top[-2] = list->array.values[i >= 0 ? i : size + i];
+                    pop(); // Pop the index
+                }
+                else if (IS_STRING(container)) { // ObjString
+                    ObjString* string = AS_STRING(container);
+
+                    // Checking the index
+                    if (!IS_INT(index)) {
+                        VM_RUNTIME_ERROR("Index of a string must be an int.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    long i = AS_INT(index);
+                    int size = string->length;
+                    if (i >= size || i < -size) {
+                        VM_RUNTIME_ERROR("Index %d out of range for string of size %d.", (int)i, size);
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    // Valid index
+                    i = i >= 0 ? i : size + i;
+                    pop(); // Pop the index
+                    get_substring(i, i);
+                }
+                // TODO table
+                else {
+                    VM_RUNTIME_ERROR("Can only subscript list, string, or table.");
+                    return INTERPRET_RUNTIME_ERROR;
                 }
 
                 VM_BREAK;

@@ -49,4 +49,6 @@ static const void* const label_table[] = {
     [OP_CLOSE_UPVALUE] = &&L_OP_CLOSE_UPVALUE,
     [OP_STORE_VAL] = &&L_OP_STORE_VAL,
     [OP_READ] = &&L_OP_READ,
+    [OP_POPULATE_LIST] = &&L_OP_POPULATE_LIST,
+    [OP_ACCESS] = &&L_OP_ACCESS,
 };

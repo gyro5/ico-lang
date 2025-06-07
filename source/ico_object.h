@@ -13,6 +13,7 @@ typedef enum : char {
     OBJ_FUNCTION,
     OBJ_NATIVE,
     OBJ_CLOSURE,
+    OBJ_LIST,
 } ObjType;
 #else
 typedef enum {
@@ -21,6 +22,7 @@ typedef enum {
     OBJ_FUNCTION,
     OBJ_NATIVE,
     OBJ_CLOSURE,
+    OBJ_LIST,
 } ObjType;
 #endif
 
@@ -85,6 +87,12 @@ typedef struct {
     ObjString* name;
 } ObjNative;
 
+// Obj subtype for list
+typedef struct {
+    Obj obj;
+    ValueArray array;
+} ObjList;
+
 // Get the obj type tag from a Value
 #define OBJ_TYPE(val) (AS_OBJ(val)->type)
 
@@ -93,6 +101,7 @@ typedef struct {
 #define IS_FUNCTION(val)        is_obj_type(val, OBJ_FUNCTION)
 #define IS_CLOSURE(val)         is_obj_type(val, OBJ_CLOSURE)
 #define IS_NATIVE(val)          is_obj_type(val, OBJ_NATIVE)
+#define IS_LIST(val)            is_obj_type(val, OBJ_LIST)
 
 // Inline function to check an Obj's type.
 static inline bool is_obj_type(IcoValue val, ObjType target_type) {
@@ -108,6 +117,7 @@ static inline bool is_obj_type(IcoValue val, ObjType target_type) {
 #define AS_CLOSURE(val)         ((ObjClosure*)AS_OBJ(val))
 #define AS_NATIVE(val)          ((ObjNative*)AS_OBJ(val))
 #define AS_NATIVE_C_FUNC(val)   (((ObjNative*)AS_OBJ(val))->function)
+#define AS_LIST(val)            ((ObjList*)AS_OBJ(val))
 
 // Create a ObjString by copying the content of a C string
 // into a newly allocated block
@@ -120,16 +130,19 @@ ObjString* take_own_and_create_str_obj(char* chars, int length);
 // Create a new ObjUpvalue that points to the passed Value slot.
 ObjUpValue* new_upvalue_obj(IcoValue* slot);
 
-// Create a new ObjFunction and return its address
+// Create a new ObjFunction and return its address.
 ObjFunction* new_function_obj();
 
 // Create a new ObjClosure that wraps the given function.
 ObjClosure* new_closure_obj(ObjFunction* function);
 
-// Create a new ObjNative from a C function of type NativeFn
+// Create a new ObjNative from a C function of type NativeFn.
 ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name);
 
-// Print an Obj (which is a Value)
+// Create a new ObjList.
+ObjList* new_list_obj();
+
+// Print an Obj (which is an IcoValue)
 void print_object(IcoValue val);
 
 #endif //!ICO_OBJECT_H

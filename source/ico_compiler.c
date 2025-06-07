@@ -111,6 +111,8 @@ static void parse_ternary(bool can_assign);
 static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
 static void parse_down_triangle(bool can_assign);
+static void parse_list_literal(bool can_assign);
+static void parse_subscript(bool can_assign);
 static void parse_declaration();
 static void parse_statement();
 
@@ -124,7 +126,7 @@ ParseRule parse_rules[] = {
     [TOKEN_RIGHT_BRACE]     = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_PAREN]      = {parse_grouping, parse_call, PREC_CALL},
     [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE},
-    [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE},
     [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
     [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE},
     [TOKEN_PIPE]            = {NULL, parse_or, PREC_OR},
@@ -157,7 +159,7 @@ ParseRule parse_rules[] = {
     [TOKEN_GREATER_EQUAL]   = {NULL, parse_binary, PREC_COMPARISON},
     [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE},
     [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE},
-    [TOKEN_LEFT_SQUARE]     = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_LEFT_SQUARE]     = {parse_list_literal, parse_subscript, PREC_CALL},
     [TOKEN_TABLE]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_IDENTIFIER]      = {parse_variable, NULL, PREC_NONE},
     [TOKEN_INT]             = {parse_int_literal, NULL, PREC_NONE},
@@ -575,6 +577,38 @@ static void parse_string_literal(bool can_assign) {
         parser.prev_token.length - 2
     );
     emit_constant(OBJ_VAL(obj_str));
+}
+
+// Parse and compile a list literal.
+static void parse_list_literal(bool can_assign) {
+    // '[' has been consumed
+    ObjList* list = new_list_obj();
+    emit_constant(OBJ_VAL(list)); // Push the list on the stack
+
+    int count = 0;
+    if (!check_next_token(TOKEN_RIGHT_SQUARE)) { // Non-empty list
+        do {
+            count++;
+            if (count > 255) {
+                error_curr_token("List literals can't have more than 255 elements.");
+            }
+            parse_expression(); // Push a member on the stack
+        }
+        while (match_next_token(TOKEN_COMMA));
+    }
+    consume_mandatory(TOKEN_RIGHT_SQUARE, "Expect ']' at the end of a list literal.");
+
+    if (count > 0) {
+        emit_two_bytes(OP_POPULATE_LIST, count); // Will pop all members and add to the list
+    }
+}
+
+// Parse and compile a subscript expression.
+static void parse_subscript(bool can_assign) {
+    parse_expression();
+    // TODO range
+    consume_mandatory(TOKEN_RIGHT_SQUARE, "Expect ']' in subscript expression.");
+    emit_byte(OP_ACCESS);
 }
 
 // Synchronize the parser to a new statement when there
@@ -1011,10 +1045,11 @@ static void compile_function(FunctionType type, const char* name, int length) {
             // Increment the function's arity
             curr_compiler->function->arity++;
             if (curr_compiler->function->arity > 255) {
-                error_curr_token("Can't have more than 255 parameters.");
+                error_curr_token("Functions can't have more than 255 parameters.");
             }
 
             // Parse the parameter name
+            // (The constant index is not used because parameters are local vars).
             uint8_t constant = parse_var_name("Expect parameter name.");
             define_variable(constant);
         }
