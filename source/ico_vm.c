@@ -912,6 +912,20 @@ static IcoValue floor_native(int arg_count, IcoValue* args) {
     }
 }
 
+static IcoValue len_native(int arg_count, IcoValue* args) {
+    IcoValue v = args[0];
+    if (IS_LIST(v)) {
+        return INT_VAL(AS_LIST(v)->array.size);
+    }
+    else if (IS_STRING(v)) {
+        return INT_VAL(AS_STRING(v)->length);
+    }
+    // TODO table
+    else {
+        return ERROR_VAL("Can only get length of string, list, or table.");
+    }
+}
+
 //------------------------------
 //      HEADER FUNCTIONS
 //------------------------------
@@ -947,6 +961,8 @@ void init_vm(bool is_repl) {
     // Add native functions
     define_native_func("clock", clock_native, 0);
     define_native_func("floor", floor_native, 1);
+    define_native_func("len", len_native, 1);
+    // TODO del()
 }
 
 void free_vm() {
