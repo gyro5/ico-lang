@@ -214,8 +214,11 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_CREATE_LIST:
             return byte_instruction("OP_CREATE_LIST", chunk, offset);
 
-        case OP_ACCESS:
-            return simple_instruction("OP_ACCESS", offset);
+        case OP_GET_ELEMENT:
+            return simple_instruction("OP_GET_ELEMENT", offset);
+
+        case OP_SET_ELEMENT:
+            return simple_instruction("OP_SET_ELEMENT", offset);
 
         default:
             printf("Unknown opcode %d\n", instruction);

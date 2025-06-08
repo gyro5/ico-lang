@@ -50,5 +50,6 @@ static const void* const label_table[] = {
     [OP_STORE_VAL] = &&L_OP_STORE_VAL,
     [OP_READ] = &&L_OP_READ,
     [OP_CREATE_LIST] = &&L_OP_CREATE_LIST,
-    [OP_ACCESS] = &&L_OP_ACCESS,
+    [OP_GET_ELEMENT] = &&L_OP_GET_ELEMENT,
+    [OP_SET_ELEMENT] = &&L_OP_SET_ELEMENT,
 };

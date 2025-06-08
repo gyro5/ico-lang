@@ -319,7 +319,10 @@ b is popped first because of LIFO.*/
     if (i >= size || i < -size) { \
         VM_RUNTIME_ERROR("Index %d out of range for " #container " of size %d.", (int)i, size); \
         return INTERPRET_RUNTIME_ERROR; \
-    } \
+    }
+
+// For getting the canonical index
+#define TRUE_INT_IDX(i, size) (i >= 0 ? i : size + i)
 
 #ifdef SWITCH_DISPATCH
 // Enabled when compiling in ANSI C or debug mode,
@@ -777,7 +780,7 @@ b is popped first because of LIFO.*/
                 VM_BREAK;
             }
 
-            VM_CASE(OP_ACCESS) {
+            VM_CASE(OP_GET_ELEMENT) {
                 // Stack should be: ...[obj][idx] <- top
                 IcoValue index = peek(0);
                 IcoValue container = peek(1);
@@ -790,7 +793,7 @@ b is popped first because of LIFO.*/
                     CHECK_INT_IDX(index, i, size, list);
 
                     // Valid index
-                    vm.stack_top[-2] = list->array.values[i >= 0 ? i : size + i];
+                    vm.stack_top[-2] = list->array.values[TRUE_INT_IDX(i, size)];
                     pop(); // Pop the index
                 }
                 else if (IS_STRING(container)) { // ObjString
@@ -801,13 +804,53 @@ b is popped first because of LIFO.*/
                     CHECK_INT_IDX(index, i, size, string);
 
                     // Valid index
-                    i = i >= 0 ? i : size + i;
+                    i = TRUE_INT_IDX(i, size);
                     pop(); // Pop the index
                     get_substring(i, i);
                 }
                 // TODO table
                 else {
                     VM_RUNTIME_ERROR("Can only subscript list, string, or table.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_SET_ELEMENT) {
+                // Stack should be: ...[obj][idx][val] <- top
+                IcoValue index = peek(1);
+                IcoValue container = peek(2);
+
+                if (IS_LIST(container)) { // ObjList
+                    ObjList* list = AS_LIST(container);
+
+                    // Checking the index
+                    int size = list->array.size;
+                    if (!IS_INT(index)) {
+                        VM_RUNTIME_ERROR("Index of a list must be an int.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    long i = AS_INT(index);
+                    if (i > size || i < -size) { // Allow setting next element
+                        VM_RUNTIME_ERROR("Index %d out of range for list of size %d.", (int)i, size);
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    // Valid index
+                    if (i == size) {
+                        append_value_array(&list->array, peek(0));
+                    }
+                    else {
+                        list->array.values[TRUE_INT_IDX(i, size)] = peek(0);
+                    }
+                    vm.stack_top[-3] = peek(0); // Value of the assignment expr
+                    pop();
+                    pop();
+                }
+                // TODO table
+                else {
+                    VM_RUNTIME_ERROR("Can only set element of list or table.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -826,6 +869,8 @@ b is popped first because of LIFO.*/
 #undef VM_CASE
 #undef VM_BREAK
 #undef VM_RUNTIME_ERROR
+#undef CHECK_INT_IDX
+#undef TRUE_INT_IDX
 }
 
 //------------------------------
