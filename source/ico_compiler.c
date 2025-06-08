@@ -582,9 +582,6 @@ static void parse_string_literal(bool can_assign) {
 // Parse and compile a list literal.
 static void parse_list_literal(bool can_assign) {
     // '[' has been consumed
-    ObjList* list = new_list_obj();
-    emit_constant(OBJ_VAL(list)); // Push the list on the stack
-
     int count = 0;
     if (!check_next_token(TOKEN_RIGHT_SQUARE)) { // Non-empty list
         do {
@@ -592,15 +589,13 @@ static void parse_list_literal(bool can_assign) {
             if (count > 255) {
                 error_curr_token("List literals can't have more than 255 elements.");
             }
-            parse_expression(); // Push a member on the stack
+            parse_expression(); // Bytecode to push each member on the stack
         }
         while (match_next_token(TOKEN_COMMA));
     }
     consume_mandatory(TOKEN_RIGHT_SQUARE, "Expect ']' at the end of a list literal.");
 
-    if (count > 0) {
-        emit_two_bytes(OP_POPULATE_LIST, count); // Will pop all members and add to the list
-    }
+    emit_two_bytes(OP_CREATE_LIST, count); // Will pop all members and add to the list
 }
 
 // Parse and compile a subscript expression.

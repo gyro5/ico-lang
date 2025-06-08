@@ -211,8 +211,8 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_READ:
             return simple_instruction("OP_READ", offset);
 
-        case OP_POPULATE_LIST:
-            return byte_instruction("OP_POPULATE_LIST", chunk, offset);
+        case OP_CREATE_LIST:
+            return byte_instruction("OP_CREATE_LIST", chunk, offset);
 
         case OP_ACCESS:
             return simple_instruction("OP_ACCESS", offset);

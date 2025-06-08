@@ -309,6 +309,18 @@ b is popped first because of LIFO.*/
     pop(); \
     }
 
+// For checking int index of strings and lists
+#define CHECK_INT_IDX(index, i, size, container) \
+    if (!IS_INT(index)) { \
+        VM_RUNTIME_ERROR("Index of a " #container " must be an int."); \
+        return INTERPRET_RUNTIME_ERROR; \
+    } \
+    long i = AS_INT(index); \
+    if (i >= size || i < -size) { \
+        VM_RUNTIME_ERROR("Index %d out of range for " #container " of size %d.", (int)i, size); \
+        return INTERPRET_RUNTIME_ERROR; \
+    } \
+
 #ifdef SWITCH_DISPATCH
 // Enabled when compiling in ANSI C or debug mode,
 // and can be enabled manually in ico_common.h
@@ -747,19 +759,20 @@ b is popped first because of LIFO.*/
                 VM_BREAK;
             }
 
-            VM_CASE(OP_POPULATE_LIST) {
+            VM_CASE(OP_CREATE_LIST) {
                 int elem_count = READ_NEXT_BYTE();
-
-                // Retrieve the list from the stack
-                ObjList* list = AS_LIST(vm.stack_top[- elem_count - 1]);
+                push(OBJ_VAL(new_list_obj())); // Create new ObjList
+                // Stack at this point: ...[e0][e1]..[en][list] <- top
 
                 // Append all values to the list
-                IcoValue* elems = vm.stack_top - elem_count;
-                while (elems < vm.stack_top) {
+                ObjList* list = AS_LIST(peek(0));
+                IcoValue* elems = vm.stack_top - elem_count - 1;
+                while (elems < vm.stack_top - 1) {
                     append_value_array(&list->array, *elems++);
                 }
 
                 // Pop all elements
+                vm.stack_top[- elem_count - 1] = peek(0);
                 vm.stack_top -= elem_count;
                 VM_BREAK;
             }
@@ -773,16 +786,8 @@ b is popped first because of LIFO.*/
                     ObjList* list = AS_LIST(container);
 
                     // Checking the index
-                    if (!IS_INT(index)) {
-                        VM_RUNTIME_ERROR("Index of a list must be an int.");
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    long i = AS_INT(index);
                     int size = list->array.size;
-                    if (i >= size || i < -size) {
-                        VM_RUNTIME_ERROR("Index %d out of range for list of size %d.", (int)i, size);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
+                    CHECK_INT_IDX(index, i, size, list);
 
                     // Valid index
                     vm.stack_top[-2] = list->array.values[i >= 0 ? i : size + i];
@@ -792,16 +797,8 @@ b is popped first because of LIFO.*/
                     ObjString* string = AS_STRING(container);
 
                     // Checking the index
-                    if (!IS_INT(index)) {
-                        VM_RUNTIME_ERROR("Index of a string must be an int.");
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
-                    long i = AS_INT(index);
                     int size = string->length;
-                    if (i >= size || i < -size) {
-                        VM_RUNTIME_ERROR("Index %d out of range for string of size %d.", (int)i, size);
-                        return INTERPRET_RUNTIME_ERROR;
-                    }
+                    CHECK_INT_IDX(index, i, size, string);
 
                     // Valid index
                     i = i >= 0 ? i : size + i;

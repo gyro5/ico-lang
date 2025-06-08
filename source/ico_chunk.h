@@ -56,7 +56,7 @@ typedef enum {
     // Other instructions
     OP_STORE_VAL,       // [op_store_val]: store value in the VM struct (internal)
     OP_READ,            // [op_read]: Read (IO) instruction
-    OP_POPULATE_LIST,   // [op_populate_list][member_count]: Populate a list obj on the stack
+    OP_CREATE_LIST,   // [op_populate_list][member_count]: Populate a list obj on the stack
     OP_ACCESS,          // [op_access]: Access a member of a list, string, or table
 } OpCode;
 
