@@ -76,7 +76,7 @@ static void run_repl() {
     printf(COLOR_BOLD "Ico Interactive REPL.\n" COLOR_RESET
            "- %s: Idle\n"
            "- %s: Success\n"
-           "- %s: Errors\n",
+           "- %s: Errors\n\n",
            repl_prompt[INTERPRET_IDLE],
            repl_prompt[INTERPRET_OK],
            repl_prompt[INTERPRET_COMPILE_ERROR]

@@ -895,7 +895,7 @@ static void parse_expression_stmt() {
 // Grammar: if -> "\" expr "?" stmt (":" stmt)? ;
 static void parse_if_stmt() {
     // The condition
-    parse_expression();
+    parse_expr_with_precedence(PREC_OR); // To avoid the rest of the if stmt being parsed as ternary expr
     consume_mandatory(TOKEN_QUESTION, "Expect '?' after condition.");
 
     // Parse the then branch
