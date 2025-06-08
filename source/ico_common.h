@@ -24,7 +24,7 @@
 #define DEBUG_PRINT_TOKEN
 #define DEBUG_PRINT_BYTECODE
 #define DEBUG_TRACE_EXECUTION
-// #define DEBUG_STRESS_GC
+#define DEBUG_STRESS_GC
 // #define DEBUG_LOG_GC
 #endif
 

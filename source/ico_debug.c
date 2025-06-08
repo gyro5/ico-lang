@@ -220,6 +220,9 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_SET_ELEMENT:
             return simple_instruction("OP_SET_ELEMENT", offset);
 
+        case OP_GET_RANGE:
+            return simple_instruction("OP_GET_RANGE", offset);
+
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

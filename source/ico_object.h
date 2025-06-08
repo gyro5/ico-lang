@@ -119,6 +119,9 @@ static inline bool is_obj_type(IcoValue val, ObjType target_type) {
 #define AS_NATIVE_C_FUNC(val)   (((ObjNative*)AS_OBJ(val))->function)
 #define AS_LIST(val)            ((ObjList*)AS_OBJ(val))
 
+// For getting the canonical index (for list and string)
+#define TRUE_INT_IDX(i, size) (i >= 0 ? i : size + i)
+
 // Create a ObjString by copying the content of a C string
 // into a newly allocated block
 ObjString* copy_and_create_str_obj(const char* source_str, int length);
@@ -126,6 +129,11 @@ ObjString* copy_and_create_str_obj(const char* source_str, int length);
 // Create a ObjString by taking ownership of the passed
 // char* (which points to an already allocated block)
 ObjString* take_own_and_create_str_obj(char* chars, int length);
+
+// Get the substring from start to end (INCLUSIVE) of the string str.
+// If start > end, a reversed substring is created and returned.
+// Assume the 2 passed indices (start and end) are valid indices.
+ObjString* get_substring_obj(ObjString* str, int start, int end);
 
 // Create a new ObjUpvalue that points to the passed Value slot.
 ObjUpValue* new_upvalue_obj(IcoValue* slot);
@@ -141,6 +149,11 @@ ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name);
 
 // Create a new ObjList.
 ObjList* new_list_obj();
+
+// Get the sublist from start to end (INCLUSIVE) of the list "list".
+// If start > end, a reversed sublist is created and returned.
+// Assume the 2 passed indices (start and end) are valid indices.
+ObjList* get_sublist_obj(ObjList* list, int start, int end);
 
 // Print an Obj (which is an IcoValue)
 void print_object(IcoValue val);

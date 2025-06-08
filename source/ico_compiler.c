@@ -601,11 +601,11 @@ static void parse_list_literal(bool can_assign) {
 // Parse and compile a subscript expression.
 static void parse_subscript(bool can_assign) {
     parse_expression();
-
-    // TODO range
     bool is_range = false;
-
-
+    if (match_next_token(TOKEN_ARROW)) { // Optional: range syntax
+        is_range = true;
+        parse_expression();
+    }
     consume_mandatory(TOKEN_RIGHT_SQUARE, "Expect ']' in subscript expression.");
 
     if (can_assign && match_next_token(TOKEN_EQUAL)) {
@@ -614,6 +614,9 @@ static void parse_subscript(bool can_assign) {
         }
         parse_expression();
         emit_byte(OP_SET_ELEMENT);
+    }
+    else if (is_range) {
+        emit_byte(OP_GET_RANGE);
     }
     else {
         emit_byte(OP_GET_ELEMENT);

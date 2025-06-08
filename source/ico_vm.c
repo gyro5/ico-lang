@@ -43,7 +43,6 @@ static bool is_falsey(IcoValue val) {
     return IS_NULL(val) || (IS_BOOL(val) && !AS_BOOL(val));
 }
 
-
 // Perform concatenation on the 2 strings on the stack top,
 // assuming they are already checked to be strings
 static void concat_strings() {
@@ -61,22 +60,6 @@ static void concat_strings() {
 
     ObjString* result_obj = take_own_and_create_str_obj(concat_chars, concat_length);
     pop();
-    pop();
-    push(OBJ_VAL(result_obj));
-}
-
-// Get the substring from start to end (INCLUSIVE) of the string
-// at stack top and push it on the stack.
-static void get_substring(int start, int end) {
-    ObjString* str = AS_STRING(peek(0));
-
-    // Populate the new ObjString
-    int substring_length = end - start + 1;
-    char* substring_chars = ALLOCATE(char, substring_length + 1); // +1 for the '\0'
-    memcpy(substring_chars, str->chars + start, substring_length);
-    substring_chars[substring_length] = '\0';
-
-    ObjString* result_obj = take_own_and_create_str_obj(substring_chars, substring_length);
     pop();
     push(OBJ_VAL(result_obj));
 }
@@ -321,8 +304,8 @@ b is popped first because of LIFO.*/
         return INTERPRET_RUNTIME_ERROR; \
     }
 
-// For getting the canonical index
-#define TRUE_INT_IDX(i, size) (i >= 0 ? i : size + i)
+// Pop n items from the VM stack
+#define POP_N(n) (vm.stack_top -= n)
 
 #ifdef SWITCH_DISPATCH
 // Enabled when compiling in ANSI C or debug mode,
@@ -679,7 +662,7 @@ b is popped first because of LIFO.*/
                 VM_BREAK;
             }
 
-            VM_CASE(OP_STORE_VAL) {
+            VM_CASE(OP_STORE_VAL) { // Only used for the REPL
                 vm.stored_val = pop();
                 VM_BREAK;
             }
@@ -767,16 +750,14 @@ b is popped first because of LIFO.*/
                 push(OBJ_VAL(new_list_obj())); // Create new ObjList
                 // Stack at this point: ...[e0][e1]..[en][list] <- top
 
-                // Append all values to the list
                 ObjList* list = AS_LIST(peek(0));
                 IcoValue* elems = vm.stack_top - elem_count - 1;
-                while (elems < vm.stack_top - 1) {
+                while (elems < vm.stack_top - 1) { // Append all values to the list
                     append_value_array(&list->array, *elems++);
                 }
 
-                // Pop all elements
-                vm.stack_top[- elem_count - 1] = peek(0);
-                vm.stack_top -= elem_count;
+                vm.stack_top[- elem_count - 1] = peek(0); // Push the list
+                POP_N(elem_count); // Pop all elements
                 VM_BREAK;
             }
 
@@ -805,8 +786,8 @@ b is popped first because of LIFO.*/
 
                     // Valid index
                     i = TRUE_INT_IDX(i, size);
+                    vm.stack_top[-2] = OBJ_VAL(get_substring_obj(string, i, i));
                     pop(); // Pop the index
-                    get_substring(i, i);
                 }
                 // TODO table
                 else {
@@ -845,12 +826,49 @@ b is popped first because of LIFO.*/
                         list->array.values[TRUE_INT_IDX(i, size)] = peek(0);
                     }
                     vm.stack_top[-3] = peek(0); // Value of the assignment expr
-                    pop();
-                    pop();
+                    POP_N(2);
                 }
                 // TODO table
                 else {
                     VM_RUNTIME_ERROR("Can only set element of list or table.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                VM_BREAK;
+            }
+
+            VM_CASE(OP_GET_RANGE) {
+                // Stack at this point: ...[obj][start][end] <- top
+                IcoValue end = peek(0);
+                IcoValue start = peek(1);
+                IcoValue container = peek(2);
+
+                if (IS_LIST(container)) { // ObjList
+                    ObjList* list = AS_LIST(container);
+
+                    // Checking the index
+                    int size = list->array.size;
+                    CHECK_INT_IDX(start, si, size, list);
+                    CHECK_INT_IDX(end, ei, size, list);
+
+                    // Valid index
+                    vm.stack_top[-3] = OBJ_VAL(get_sublist_obj(list, si, ei));
+                    POP_N(2); // Pop the indices
+                }
+                else if (IS_STRING(container)) { // ObjString
+                    ObjString* string = AS_STRING(container);
+
+                    // Checking the index
+                    int size = string->length;
+                    CHECK_INT_IDX(start, si, size, list);
+                    CHECK_INT_IDX(end, ei, size, list);
+
+                    // Valid index
+                    vm.stack_top[-3] = OBJ_VAL(get_substring_obj(string, si, ei));
+                    POP_N(2); // Pop the indices
+                }
+                else {
+                    VM_RUNTIME_ERROR("Can only get range of list or string.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
 
@@ -870,7 +888,7 @@ b is popped first because of LIFO.*/
 #undef VM_BREAK
 #undef VM_RUNTIME_ERROR
 #undef CHECK_INT_IDX
-#undef TRUE_INT_IDX
+#undef POP_N
 }
 
 //------------------------------

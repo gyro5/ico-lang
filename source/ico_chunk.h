@@ -61,6 +61,7 @@ typedef enum {
     OP_CREATE_LIST,     // [op_populate_list][member_count]: Populate a list obj on the stack
     OP_GET_ELEMENT,     // [op_get_ele]: Access an element of a list, string, or table
     OP_SET_ELEMENT,     // [op_set_ele]: Set an element of a list or a table
+    OP_GET_RANGE,       // [op_get_range]: Get a range of elements in a container
 } OpCode;
 
 typedef struct {

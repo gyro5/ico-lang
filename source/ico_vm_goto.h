@@ -52,4 +52,5 @@ static const void* const label_table[] = {
     [OP_CREATE_LIST] = &&L_OP_CREATE_LIST,
     [OP_GET_ELEMENT] = &&L_OP_GET_ELEMENT,
     [OP_SET_ELEMENT] = &&L_OP_SET_ELEMENT,
+    [OP_GET_RANGE] = &&L_OP_GET_RANGE,
 };

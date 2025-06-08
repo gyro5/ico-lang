@@ -134,6 +134,30 @@ ObjString* take_own_and_create_str_obj(char* chars, int length) {
     return allocate_str_obj(chars, length, hash);
 }
 
+ObjString* get_substring_obj(ObjString* str, int start, int end) {
+    start = TRUE_INT_IDX(start, str->length);
+    end = TRUE_INT_IDX(end, str->length);
+    int length;
+    char* chars = NULL;
+
+    if (end >= start) { // In-order substring
+        length = end - start + 1;
+        chars = ALLOCATE(char, length + 1); // +1 for the '\0'
+        memcpy(chars, str->chars + start, length);
+    }
+    else { // Reversed substring
+        length = start - end + 1;
+        chars = ALLOCATE(char, length + 1); // +1 for the '\0'
+        int i = 0;
+        for (char* p = str->chars + start; p >= str->chars + end; p--) {
+            chars[i++] = *p;
+        }
+    }
+
+    chars[length] = '\0';
+    return take_own_and_create_str_obj(chars, length);
+}
+
 ObjUpValue* new_upvalue_obj(IcoValue* slot) {
     ObjUpValue* upvalue = ALLOCATE_OBJ(ObjUpValue, OBJ_UPVALUE);
     upvalue->location = slot;
@@ -184,6 +208,25 @@ ObjList* new_list_obj() {
     ((Obj*)list)->hash = hash_address(list);
     init_value_array(&list->array);
     return list;
+}
+
+ObjList* get_sublist_obj(ObjList* list, int start, int end) {
+    start = TRUE_INT_IDX(start, list->array.size);
+    end = TRUE_INT_IDX(end, list->array.size);
+    ObjList* result = new_list_obj();
+
+    if (end >= start) { // In-order sublist
+        for (int i = start; i <= end; i++) {
+            append_value_array(&result->array, list->array.values[i]);
+        }
+    }
+    else { // Reversed sublist
+        for (int i = start; i >= end; i--) {
+            append_value_array(&result->array, list->array.values[i]);
+        }
+    }
+
+    return result;
 }
 
 void print_object(IcoValue val) {
