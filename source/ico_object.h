@@ -4,6 +4,7 @@
 #include "ico_common.h"
 #include "ico_value.h"
 #include "ico_chunk.h"
+#include "ico_table.h"
 
 // Types of heap-allocated value
 #ifdef C23_ENUM_FIXED_TYPE
@@ -14,6 +15,7 @@ typedef enum : char {
     OBJ_NATIVE,
     OBJ_CLOSURE,
     OBJ_LIST,
+    OBJ_TABLE,
 } ObjType;
 #else
 typedef enum {
@@ -23,6 +25,7 @@ typedef enum {
     OBJ_NATIVE,
     OBJ_CLOSURE,
     OBJ_LIST,
+    OBJ_TABLE,
 } ObjType;
 #endif
 
@@ -93,6 +96,12 @@ typedef struct {
     ValueArray array;
 } ObjList;
 
+// Obj subtype for table
+typedef struct {
+    Obj obj;
+    Table table;
+} ObjTable;
+
 // Get the obj type tag from a Value
 #define OBJ_TYPE(val) (AS_OBJ(val)->type)
 
@@ -102,6 +111,7 @@ typedef struct {
 #define IS_CLOSURE(val)         is_obj_type(val, OBJ_CLOSURE)
 #define IS_NATIVE(val)          is_obj_type(val, OBJ_NATIVE)
 #define IS_LIST(val)            is_obj_type(val, OBJ_LIST)
+#define IS_TABLE(val)           is_obj_type(val, OBJ_TABLE)
 
 // Inline function to check an Obj's type.
 static inline bool is_obj_type(IcoValue val, ObjType target_type) {
@@ -118,6 +128,7 @@ static inline bool is_obj_type(IcoValue val, ObjType target_type) {
 #define AS_NATIVE(val)          ((ObjNative*)AS_OBJ(val))
 #define AS_NATIVE_C_FUNC(val)   (((ObjNative*)AS_OBJ(val))->function)
 #define AS_LIST(val)            ((ObjList*)AS_OBJ(val))
+#define AS_TABLE(val)           ((ObjTable*)AS_OBJ(val))
 
 // For getting the canonical index (for list and string)
 #define TRUE_INT_IDX(i, size) (i >= 0 ? i : size + i)
@@ -154,6 +165,9 @@ ObjList* new_list_obj();
 // If start > end, a reversed sublist is created and returned.
 // Assume the 2 passed indices (start and end) are valid indices.
 ObjList* get_sublist_obj(ObjList* list, int start, int end);
+
+// Create a new ObjTable
+ObjTable* new_table_obj();
 
 // Print an Obj (which is an IcoValue)
 void print_object(IcoValue val);

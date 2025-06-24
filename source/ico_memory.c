@@ -94,6 +94,12 @@ static void free_one_object(Obj* obj) {
             free_value_array(&list->array);
             break;
         }
+
+        case OBJ_TABLE: {
+            ObjTable* table = (ObjTable*)obj;
+            free_table(&table->table);
+            break;
+        }
     }
 }
 
@@ -247,6 +253,12 @@ static void blacken_one_object(Obj* obj) {
             // Mark all value in the list
             mark_value_array(&list->array);
 
+            break;
+        }
+
+        case OBJ_TABLE: {
+            ObjTable* table = (ObjTable*)obj;
+            mark_table(&table->table);
             break;
         }
 

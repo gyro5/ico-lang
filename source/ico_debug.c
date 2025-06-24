@@ -223,6 +223,9 @@ int disass_instruction(CodeChunk* chunk, int offset) {
         case OP_GET_RANGE:
             return simple_instruction("OP_GET_RANGE", offset);
 
+        case OP_CREATE_TABLE:
+            return simple_instruction("OP_CREATE_TABLE", offset);
+
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

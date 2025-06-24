@@ -112,6 +112,7 @@ static void parse_call(bool can_assign);
 // static void parse_dot(bool can_assign);
 static void parse_down_triangle(bool can_assign);
 static void parse_list_literal(bool can_assign);
+static void parse_empty_table(bool can_assign);
 static void parse_subscript(bool can_assign);
 static void parse_declaration();
 static void parse_statement();
@@ -160,7 +161,7 @@ ParseRule parse_rules[] = {
     [TOKEN_2_GREATER]       = {NULL, NULL, PREC_NONE},
     [TOKEN_3_GREATER]       = {NULL, NULL, PREC_NONE},
     [TOKEN_LEFT_SQUARE]     = {parse_list_literal, parse_subscript, PREC_CALL},
-    [TOKEN_TABLE]           = {NULL, NULL, PREC_NONE}, // TODO // TODO
+    [TOKEN_TABLE]           = {parse_empty_table, NULL, PREC_NONE}, // TODO // TODO
     [TOKEN_IDENTIFIER]      = {parse_variable, NULL, PREC_NONE},
     [TOKEN_INT]             = {parse_int_literal, NULL, PREC_NONE},
     [TOKEN_FLOAT]           = {parse_float_literal, NULL, PREC_NONE},
@@ -596,6 +597,11 @@ static void parse_list_literal(bool can_assign) {
     consume_mandatory(TOKEN_RIGHT_SQUARE, "Expect ']' at the end of a list literal.");
 
     emit_two_bytes(OP_CREATE_LIST, count); // Will pop all members and add to the list
+}
+
+// Parse and compile an empty table literal
+static void parse_empty_table(bool can_assign) {
+    emit_byte(OP_CREATE_TABLE);
 }
 
 // Parse and compile a subscript expression.

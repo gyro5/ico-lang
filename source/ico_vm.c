@@ -874,6 +874,11 @@ b is popped first because of LIFO.*/
 
                 VM_BREAK;
             }
+
+            VM_CASE(OP_CREATE_TABLE) {
+                push(OBJ_VAL(new_table_obj()));
+                VM_BREAK;
+            }
         }
     }
 

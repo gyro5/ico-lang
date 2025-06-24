@@ -229,6 +229,13 @@ ObjList* get_sublist_obj(ObjList* list, int start, int end) {
     return result;
 }
 
+ObjTable* new_table_obj() {
+    ObjTable* table = ALLOCATE_OBJ(ObjTable, OBJ_TABLE);
+    ((Obj*)table)->hash = hash_address(table);
+    init_table(&table->table);
+    return table;
+}
+
 void print_object(IcoValue val) {
     switch (OBJ_TYPE(val)) {
         case OBJ_STRING:
@@ -271,6 +278,26 @@ void print_object(IcoValue val) {
                 fputc(']', stdout);
             }
             break;
+        }
+
+        case OBJ_TABLE: {
+            ObjTable* table = AS_TABLE(val);
+            if (table->table.count == 0) {
+                printf("{}");
+            }
+            else {
+                fputc('{', stdout);
+                uint32_t j = 1;
+                for (uint32_t i = 0; i < table->table.capacity; i++) {
+                    if (!IS_NULL(table->table.entries[i].key)) {
+                        print_value(table->table.entries[i].key);
+                        printf(": ");
+                        print_value(table->table.entries[i].value);
+                        if (j++ < table->table.count) printf(", ");
+                    }
+                }
+                fputc('}', stdout);
+            }
         }
     }
 }

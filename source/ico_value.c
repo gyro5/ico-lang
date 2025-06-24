@@ -1,5 +1,4 @@
 #include <stdio.h>
-#include <string.h>
 
 #include "ico_memory.h"
 #include "ico_value.h"
