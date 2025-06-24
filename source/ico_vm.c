@@ -789,7 +789,20 @@ b is popped first because of LIFO.*/
                     vm.stack_top[-2] = OBJ_VAL(get_substring_obj(string, i, i));
                     pop(); // Pop the index
                 }
-                // TODO table
+                else if (IS_TABLE(container)) {
+                    ObjTable* table = AS_TABLE(container);
+
+                    if (IS_NULL(index) || IS_LIST(index) || IS_TABLE(index)) {
+                        VM_RUNTIME_ERROR("Can't use null, list, or table as key for table.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    if (!table_get(&table->table, index, vm.stack_top -2)) {
+                        VM_RUNTIME_ERROR("Can't find this key in the table.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+                    pop(); // Pop the index
+                }
                 else {
                     VM_RUNTIME_ERROR("Can only subscript list, string, or table.");
                     return INTERPRET_RUNTIME_ERROR;
@@ -825,14 +838,24 @@ b is popped first because of LIFO.*/
                     else {
                         list->array.values[TRUE_INT_IDX(i, size)] = peek(0);
                     }
-                    vm.stack_top[-3] = peek(0); // Value of the assignment expr
-                    POP_N(2);
                 }
-                // TODO table
+                else if (IS_TABLE(container)) { // ObjTable
+                    ObjTable* table = AS_TABLE(container);
+
+                    if (IS_NULL(index) || IS_LIST(index) || IS_TABLE(index)) {
+                        VM_RUNTIME_ERROR("Can't use null, list, or table as key for table.");
+                        return INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    table_set(&table->table, index, peek(0));
+                }
                 else {
                     VM_RUNTIME_ERROR("Can only set element of list or table.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
+
+                vm.stack_top[-3] = peek(0); // Value of the assignment expr
+                POP_N(2);
 
                 VM_BREAK;
             }
