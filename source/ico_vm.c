@@ -948,7 +948,17 @@ static IcoValue len_native(int arg_count, IcoValue* args) {
     else if (IS_STRING(v)) {
         return INT_VAL(AS_STRING(v)->length);
     }
-    // TODO table
+    else if (IS_TABLE(v)) {
+        // Can't use `count` because it includes tombstone
+        Entry* entries = AS_TABLE(v)->table.entries;
+        int len = 0;
+        for (uint32_t i = 0; i < AS_TABLE(v)->table.capacity; i++) {
+            if (!IS_NULL(entries[i].key)) {
+                len++;
+            }
+        }
+        return INT_VAL(len);
+    }
     else {
         return ERROR_VAL("Can only get length of string, list, or table.");
     }
