@@ -53,7 +53,7 @@ void print_value(IcoValue val) {
             break;
 
         case VAL_ERROR:
-            printf("TODO error %s", AS_ERROR(val));
+            printf("Fatal: Should not be reachable. Error val: %s", AS_ERROR(val));
             break;
     }
 }

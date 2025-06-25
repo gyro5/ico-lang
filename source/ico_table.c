@@ -8,7 +8,7 @@
 // The maximum load factor of a table
 #define TABLE_MAX_LOAD 0.75
 
-Entry absent_entry = {NULL_VAL, NULL_VAL};
+Entry absent_entry = {NULL_VAL, ERROR_VAL("Fatal: absent_entry should not be reachable")};
 
 //------------------------------
 //      STATIC FUNCTIONS
@@ -140,7 +140,7 @@ static Entry* find_entry(Entry* entries, uint32_t capacity, IcoValue target) {
         case VAL_OBJ: return find_obj_entry(entries, capacity, AS_OBJ(target));
 
         case VAL_ERROR: case VAL_NULL: default:
-            // Should be unreachable --> Check in VM when try to access with [] // TODO
+            // Should be unreachable --> Check in VM when try to access with []
             return &absent_entry;
     }
 }

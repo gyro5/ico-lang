@@ -14,7 +14,7 @@ var_decl -> "$" IDENTIFIER ("=" expr)? ;
 # Statements
 stmt -> exprStmt | loop | if | print | return | block ;
 
-exprStmt -> expr ";" ; # Will print in REPL with sth like OP_PRINT
+exprStmt -> expr ";" ;
 
 loop -> "@" expr ":" stmt ;
 
@@ -130,8 +130,6 @@ TOKEN_TABLE : '[#]'
 
 ## Notes:
 
-- Var declarations are evaluated to null.
-
 - The REPL will add an implicit `;` to every input line.
 
 - Comments are "// ..." (until end of line).
@@ -140,9 +138,7 @@ TOKEN_TABLE : '[#]'
   + Print: `>> expr` (evaluated to the printed value)
   + Println: `>>> expr`
   + Read string: `<<` (treat as a value)
-  + Read bool: `<?` (accept ":)" or ":(")
+  + Read bool: `<?`
   + Read number: `<#`
 
-- Function literal will require implementation of anonymous functions as well.
-
-- There are 2 types of table copy: shallow and deep. --> Implemented as native function.
+- There are 2 types of table and list copy: shallow and deep. --> Implemented as native function.
