@@ -109,7 +109,7 @@ static void parse_and(bool can_assign);
 static void parse_or(bool can_assign);
 static void parse_ternary(bool can_assign);
 static void parse_call(bool can_assign);
-// static void parse_dot(bool can_assign);
+static void parse_dot(bool can_assign);
 static void parse_down_triangle(bool can_assign);
 static void parse_list_literal(bool can_assign);
 static void parse_empty_table(bool can_assign);
@@ -128,7 +128,7 @@ ParseRule parse_rules[] = {
     [TOKEN_LEFT_PAREN]      = {parse_grouping, parse_call, PREC_CALL},
     [TOKEN_RIGHT_PAREN]     = {NULL, NULL, PREC_NONE},
     [TOKEN_RIGHT_SQUARE]    = {NULL, NULL, PREC_NONE},
-    [TOKEN_DOT]             = {NULL, NULL, PREC_CALL}, // TODO parse_dot
+    [TOKEN_DOT]             = {NULL, parse_dot, PREC_CALL},
     [TOKEN_COMMA]           = {NULL, NULL, PREC_NONE},
     [TOKEN_PIPE]            = {NULL, parse_or, PREC_OR},
     [TOKEN_AND]             = {NULL, parse_and, PREC_AND},
@@ -627,7 +627,26 @@ static void parse_subscript(bool can_assign) {
     else {
         emit_byte(OP_GET_ELEMENT);
     }
+}
 
+// Parse and compile a dot-notation for element access
+// of an Ico table. The identifier is used as an ObjString.
+static void parse_dot(bool can_assign) {
+    // Parse the property's name
+    consume_mandatory(TOKEN_IDENTIFIER, "Expect an identifier after '.'.");
+    ObjString* string_const = copy_and_create_str_obj(
+        parser.prev_token.start,
+        parser.prev_token.length
+    );
+    emit_constant(OBJ_VAL(string_const));
+
+    if (can_assign && match_next_token(TOKEN_EQUAL)) {
+        parse_expression();
+        emit_byte(OP_SET_ELEMENT);
+    }
+    else {
+        emit_byte(OP_GET_ELEMENT);
+    }
 }
 
 // Synchronize the parser to a new statement when there
@@ -1134,31 +1153,6 @@ static void parse_call(bool can_assign) {
     uint8_t arg_count = parse_arg_list();
     emit_two_bytes(OP_CALL, arg_count);
 }
-/*
-// Parse and compile a dot-notation for property access
-// of an Ico instance.
-static void parse_dot(bool can_assign) {
-    // Parse the property's name
-    consume_mandatory(TOKEN_IDENTIFIER, "Expect property name after '.'.");
-    uint8_t name_const_idx = identifier_constant_index(&parser.prev_token);
-
-    if (can_assign && match_next_token(TOKEN_EQUAL)) {
-        parse_expression();
-        emit_two_bytes(OP_SET_PROPERTY, name_const_idx);
-    }
-    else if (match_next_token(TOKEN_LEFT_PAREN)) {
-        // Switch to faster invocation
-        uint8_t arg_count = parse_arg_list();
-        emit_two_bytes(OP_INVOKE, name_const_idx);
-        emit_byte(arg_count);
-        // The bytecode should be like:
-        // [code to push "this"][code to push arg list][op_invoke] <- stack top
-    }
-    else {
-        emit_two_bytes(OP_GET_PROPERTY, name_const_idx);
-    }
-}
-*/
 
 // Parse and compile a variable declaration.
 static void parse_var_decl() {
