@@ -964,6 +964,26 @@ static IcoValue len_native(int arg_count, IcoValue* args) {
     }
 }
 
+static IcoValue shallow_copy_native(int arg_count, IcoValue* args) {
+    IcoValue v = args[0];
+    if (IS_LIST(v) || IS_TABLE(v)) {
+        return shallow_copy(v);
+    }
+    else {
+        return ERROR_VAL("Can only shallow copy list or table.");
+    }
+}
+
+static IcoValue deep_copy_native(int arg_count, IcoValue* args) {
+    IcoValue v = args[0];
+    if (IS_LIST(v) || IS_TABLE(v)) {
+        return deep_copy(v);
+    }
+    else {
+        return ERROR_VAL("Can only deep copy list or table.");
+    }
+}
+
 //------------------------------
 //      HEADER FUNCTIONS
 //------------------------------
@@ -1000,7 +1020,8 @@ void init_vm(bool is_repl) {
     define_native_func("clock", clock_native, 0);
     define_native_func("floor", floor_native, 1);
     define_native_func("len", len_native, 1);
-    // TODO del()
+    define_native_func("shallowCopy", shallow_copy_native, 1);
+    define_native_func("deepCopy", deep_copy_native, 1);
 }
 
 void free_vm() {

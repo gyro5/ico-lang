@@ -238,6 +238,47 @@ ObjTable* new_table_obj() {
     return table;
 }
 
+IcoValue shallow_copy(IcoValue original) {
+    if (IS_LIST(original)) {
+        ObjList* li1 = AS_LIST(original);
+        ObjList* li2 = new_list_obj();
+        for (int i = 0; i < li1->array.size; i++) {
+            append_value_array(&li2->array, li1->array.values[i]);
+        }
+        return OBJ_VAL(li2);
+    }
+    else if (IS_TABLE(original)) {
+        ObjTable* t1 = AS_TABLE(original);
+        ObjTable* t2 = new_table_obj();
+        table_add_all(&t1->table, &t2->table);
+        return OBJ_VAL(t2);
+    }
+    return original;
+}
+
+IcoValue deep_copy(IcoValue original) {
+    if (IS_LIST(original)) {
+        ObjList* li1 = AS_LIST(original);
+        ObjList* li2 = new_list_obj();
+        for (int i = 0; i < li1->array.size; i++) {
+            append_value_array(&li2->array, deep_copy(li1->array.values[i]));
+        }
+        return OBJ_VAL(li2);
+    }
+    else if (IS_TABLE(original)) {
+        ObjTable* t1 = AS_TABLE(original);
+        ObjTable* t2 = new_table_obj();
+        for (uint32_t i = 0; i < t1->table.capacity; i++) {
+            Entry* entry = &t1->table.entries[i];
+            if (!IS_NULL(entry->key)) {
+                table_set(&t2->table, entry->key, deep_copy(entry->value));
+            }
+        }
+        return OBJ_VAL(t2);
+    }
+    return original;
+}
+
 /**********************
     PRINT FUNCTIONS
 ***********************/

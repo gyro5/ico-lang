@@ -171,6 +171,14 @@ ObjList* get_sublist_obj(ObjList* list, int start, int end);
 // Create a new ObjTable
 ObjTable* new_table_obj();
 
+// Return a shallow copy of an ObjList or ObjTable.
+// Just return the original for all other types.
+IcoValue shallow_copy(IcoValue original);
+
+// Return a deep copy of an ObjList or ObjTable.
+// Just return the original for all other types.
+IcoValue deep_copy(IcoValue original);
+
 // Print an Obj (which is an IcoValue)
 void print_object(IcoValue val);
 
