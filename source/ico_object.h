@@ -94,14 +94,14 @@ typedef struct {
 typedef struct {
     Obj obj;
     ValueArray array;
-    bool printing;
+    bool seen;
 } ObjList;
 
 // Obj subtype for table
 typedef struct {
     Obj obj;
     Table table;
-    bool printing;
+    bool seen;
 } ObjTable;
 
 // Get the obj type tag from a Value

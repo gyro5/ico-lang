@@ -207,7 +207,7 @@ ObjList* new_list_obj() {
     ObjList* list = ALLOCATE_OBJ(ObjList, OBJ_LIST);
     // Don't hash list
     init_value_array(&list->array);
-    list->printing = false;
+    list->seen = false;
     return list;
 }
 
@@ -234,7 +234,7 @@ ObjTable* new_table_obj() {
     ObjTable* table = ALLOCATE_OBJ(ObjTable, OBJ_TABLE);
     // Don't hash table
     init_table(&table->table);
-    table->printing = false;
+    table->seen = false;
     return table;
 }
 
@@ -259,24 +259,49 @@ IcoValue shallow_copy(IcoValue original) {
 IcoValue deep_copy(IcoValue original) {
     if (IS_LIST(original)) {
         ObjList* li1 = AS_LIST(original);
+        if (li1->seen) goto DEEP_COPY_ERROR;
+
+        li1->seen = true;
         ObjList* li2 = new_list_obj();
+
         for (int i = 0; i < li1->array.size; i++) {
-            append_value_array(&li2->array, deep_copy(li1->array.values[i]));
+            IcoValue value = deep_copy(li1->array.values[i]);
+            if (IS_ERROR(value)) {
+                li1->seen = false;
+                return value;
+            }
+            append_value_array(&li2->array, value);
         }
+
+        li1->seen = false;
         return OBJ_VAL(li2);
     }
     else if (IS_TABLE(original)) {
         ObjTable* t1 = AS_TABLE(original);
+        if (t1->seen) goto DEEP_COPY_ERROR;
+
+        t1->seen = true;
         ObjTable* t2 = new_table_obj();
+
         for (uint32_t i = 0; i < t1->table.capacity; i++) {
             Entry* entry = &t1->table.entries[i];
+            IcoValue value = deep_copy(entry->value);
+            if (IS_ERROR(value)) {
+                t1->seen = false;
+                return value;
+            }
             if (!IS_NULL(entry->key)) {
-                table_set(&t2->table, entry->key, deep_copy(entry->value));
+                table_set(&t2->table, entry->key, value);
             }
         }
+
+        t1->seen = false;
         return OBJ_VAL(t2);
     }
     return original;
+
+DEEP_COPY_ERROR:
+    return ERROR_VAL("Can't deep copy self-recursive structure.");
 }
 
 /**********************
@@ -314,8 +339,8 @@ void print_object(IcoValue val) {
                 printf("[]");
             }
             else {
-                if (!list->printing) {
-                    list->printing = true;
+                if (!list->seen) {
+                    list->seen = true;
                     fputc('[', stdout);
                     print_value(list->array.values[0]);
                     for (int i = 1; i < list->array.size; i++) {
@@ -323,7 +348,7 @@ void print_object(IcoValue val) {
                         print_value(list->array.values[i]);
                     }
                     fputc(']', stdout);
-                    list->printing = false;
+                    list->seen = false;
                 }
                 else {
                     printf("[...]");
@@ -338,8 +363,8 @@ void print_object(IcoValue val) {
                 printf("{}");
             }
             else {
-                if (!table->printing) {
-                    table->printing = true;
+                if (!table->seen) {
+                    table->seen = true;
                     fputc('{', stdout);
                     uint32_t j = 1;
                     for (uint32_t i = 0; i < table->table.capacity; i++) {
@@ -351,7 +376,7 @@ void print_object(IcoValue val) {
                         }
                     }
                     fputc('}', stdout);
-                    table->printing = false;
+                    table->seen = false;
                 }
                 else {
                     printf("{...}");
