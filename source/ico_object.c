@@ -205,8 +205,9 @@ ObjNative* new_native_func_obj(NativeFn c_func, int arity, ObjString* name) {
 
 ObjList* new_list_obj() {
     ObjList* list = ALLOCATE_OBJ(ObjList, OBJ_LIST);
-    ((Obj*)list)->hash = hash_address(list);
+    // Don't hash list
     init_value_array(&list->array);
+    list->printing = false;
     return list;
 }
 
@@ -231,10 +232,15 @@ ObjList* get_sublist_obj(ObjList* list, int start, int end) {
 
 ObjTable* new_table_obj() {
     ObjTable* table = ALLOCATE_OBJ(ObjTable, OBJ_TABLE);
-    ((Obj*)table)->hash = hash_address(table);
+    // Don't hash table
     init_table(&table->table);
+    table->printing = false;
     return table;
 }
+
+/**********************
+    PRINT FUNCTIONS
+***********************/
 
 void print_object(IcoValue val) {
     switch (OBJ_TYPE(val)) {
@@ -267,15 +273,20 @@ void print_object(IcoValue val) {
                 printf("[]");
             }
             else {
-                fputc('[', stdout);
-                print_value(list->array.values[0]);
-                int i = 1;
-                while (i < list->array.size) {
-                    printf(", ");
-                    print_value(list->array.values[i]);
-                    i++;
+                if (!list->printing) {
+                    list->printing = true;
+                    fputc('[', stdout);
+                    print_value(list->array.values[0]);
+                    for (int i = 1; i < list->array.size; i++) {
+                        printf(", ");
+                        print_value(list->array.values[i]);
+                    }
+                    fputc(']', stdout);
+                    list->printing = false;
                 }
-                fputc(']', stdout);
+                else {
+                    printf("[...]");
+                }
             }
             break;
         }
@@ -286,17 +297,24 @@ void print_object(IcoValue val) {
                 printf("{}");
             }
             else {
-                fputc('{', stdout);
-                uint32_t j = 1;
-                for (uint32_t i = 0; i < table->table.capacity; i++) {
-                    if (!IS_NULL(table->table.entries[i].key)) {
-                        print_value(table->table.entries[i].key);
-                        printf(": ");
-                        print_value(table->table.entries[i].value);
-                        if (j++ < table->table.count) printf(", ");
+                if (!table->printing) {
+                    table->printing = true;
+                    fputc('{', stdout);
+                    uint32_t j = 1;
+                    for (uint32_t i = 0; i < table->table.capacity; i++) {
+                        if (!IS_NULL(table->table.entries[i].key)) {
+                            print_value(table->table.entries[i].key);
+                            printf(": ");
+                            print_value(table->table.entries[i].value);
+                            if (j++ < table->table.count) printf(", ");
+                        }
                     }
+                    fputc('}', stdout);
+                    table->printing = false;
                 }
-                fputc('}', stdout);
+                else {
+                    printf("{...}");
+                }
             }
         }
     }
