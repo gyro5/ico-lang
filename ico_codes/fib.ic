@@ -1,0 +1,6 @@
+// Example of the Fibonacci function implemented in Ico
+$ fib = /\ n -> n <= 1 ? 1 : \/(n - 1) + \/(n - 2);
+>> "Input: ";
+$ n = floor(<#);
+>> "The "; >> n; >>"th Fibonacci number is ";
+>>> fib(n);
