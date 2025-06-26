@@ -5,3 +5,4 @@ temp.ic
 vsc-extension-quickstart.md
 node_modules/
 package-lock.json
+*.vsix
