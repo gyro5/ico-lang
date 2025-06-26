@@ -4,7 +4,7 @@ This is a Visual Studio Code extension that provides syntax highlighting support
 
 Example:
 
-![Example of syntax highlighted Ico code](../../docs/vsx_example.png)
+![Example of syntax highlighted Ico code](docs/vsx_example.png)
 
 ## Building and installing
 
@@ -18,4 +18,4 @@ npm run build
 
 To install the `.vsix` file, open the Extension tab in VSCode and press the 3-dot button, then click "Install from VSIX...":
 
-![Installing the extension](../../docs/vsx_install.png)
+![Installing the extension](docs/vsx_install.png)

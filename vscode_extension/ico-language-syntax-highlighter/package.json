@@ -3,6 +3,10 @@
   "displayName": "Ico Language Syntax Highlighter",
   "description": "",
   "version": "0.0.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/gyro5/ico-lang"
+  },
   "engines": {
     "vscode": "^1.54.0"
   },
@@ -35,7 +39,7 @@
     ]
   },
   "scripts": {
-    "build": "vsce package --allow-missing-repository"
+    "build": "vsce package"
   },
   "devDependencies": {
     "@vscode/vsce": "^3.6.0"
