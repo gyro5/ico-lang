@@ -1,0 +1,40 @@
+{
+  "name": "ico-language-syntax-highlighter",
+  "displayName": "Ico Language Syntax Highlighter",
+  "description": "",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.54.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "grammars": [
+      {
+        "language": "ico",
+        "scopeName": "source.ic",
+        "path": "./syntaxes/ico.tmLanguage.json",
+        "unbalancedBracketScopes": [
+          "constant.language.ico"
+        ]
+      }
+    ],
+    "languages": [
+      {
+        "id": "ico",
+        "aliases": [
+          "Ico",
+          "ico"
+        ],
+        "extensions": [
+          ".ic"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ]
+  },
+  "dependencies": {
+    "@vscode/vsce": "^3.6.0"
+  }
+}

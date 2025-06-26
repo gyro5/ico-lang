@@ -1,0 +1,69 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "Ico",
+	"foldingStartMarker": "\\{\\s*$",
+	"foldingStopMarker": "^\\s*\\}",
+	"patterns": [
+		{
+			"name": "comment.double-slash.ico",
+			"match": "\\s*//.*"
+		},
+		{
+			"name": "string.quoted.double.ico",
+			"begin": "\"",
+			"end": "\""
+		},
+		{
+			"include": "#entities"
+		},
+		{
+			"include": "#constants"
+		},
+		{
+			"include": "#keywords"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"name": "keyword.control.ico",
+					"match": "(@|\\?|\\\\|:|<~)"
+				},
+				{
+					"name": "keyword.operator.ico",
+					"match": "(\\+|-(>)?|\\*|/|%|>(=)?|<(=|<|\\?|#)?|!(=)?|=(=)?|\\^|\\.|&|\\|)"
+				}
+			]
+		},
+		"constants": {
+			"patterns": [
+				{
+					"name": "constant.numeric.ico",
+					"match": "\\d+(.\\d+)?"
+				},
+				{
+					"name": "constant.language.ico",
+					"match": "(:\\)|:\\(|#|\\[#\\])"
+				}
+			]
+		},
+		"entities": {
+			"patterns": [
+				{
+					"name": "variable.other.ico",
+					"match": "[a-zA-Z_]\\w*"
+				},
+				{
+					"name": "entity.name.function.ico",
+					"match": "(/\\\\|\\\\/|>>(>)?)"
+				},
+				{
+					"name": "entity.name.type.ico",
+					"match": "(\\$)"
+				}
+			]
+		}
+	},
+	"scopeName": "source.ic"
+}
