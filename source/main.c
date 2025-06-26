@@ -87,8 +87,8 @@ static void run_repl() {
     ICO_INIT_REPL(line);
     while (ICO_READLINE(line)) {                        // Read
         if (ICO_NOT_EMPTY_LINE(line)) {
-            printf(REPL_OUTPUT_COLOR);
             res = RUN_CODE(line);                       // Eval
+            printf(REPL_OUTPUT_COLOR);
             vm_print_stored_val();                      // Print
             // See above for explanation of "\n"
             printf(COLOR_RESET "\n");

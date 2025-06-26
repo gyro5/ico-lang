@@ -674,7 +674,6 @@ b is popped first because of LIFO.*/
                     VM_RUNTIME_ERROR("Error while reading input.");
                     return INTERPRET_RUNTIME_ERROR;
                 }
-                printf(REPL_OUTPUT_COLOR);
                 int length = (int)strlen(buffer);
 
                 // Remove the trailing newline
